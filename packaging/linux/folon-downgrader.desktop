@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=FOLON Fallout 4 Downgrader
+Comment=Downgrade Steam Fallout 4
+Exec=FOLON-Downgrader
+Icon=folon-downgrader
+Terminal=false
+Categories=Game;Utility;

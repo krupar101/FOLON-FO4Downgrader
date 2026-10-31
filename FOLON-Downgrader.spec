@@ -1,44 +1,21 @@
-# -*- mode: python ; coding: utf-8 -*-
-
+# Native Windows/Linux builds. Both ship the same GUI and optional CLI.
+import sys
 
 a = Analysis(
-    ["FOLON-Downgrader.py"],
-    pathex=[],
-    binaries=[],
-    datas=[("FOLON.css", "."), ("img/", "img/")],
-    hiddenimports=[],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[
-        "img/FOLON4K.png",
-        "img/FOLON_CoverBanner.png",
-        "img/FOLONBackground.svg",
-    ],
-    noarchive=False,
-    optimize=0,
+    ['FOLON-Downgrader.py'], pathex=[], binaries=[],
+    datas=[('FOLON.css', '.'), ('img/FOLON256.png', 'img'),
+           ('img/FOLONBackground.png', 'img'), ('img/check.svg', 'img'),
+           ('img/folder.svg', 'img'), ('img/alert.svg', 'img'), ('manifests', 'manifests'), ('LICENSE', '.')],
+    hiddenimports=['folon_downgrader.qt'], hookspath=[], hooksconfig={}, runtime_hooks=[],
+    excludes=[], noarchive=False,
 )
 pyz = PYZ(a.pure)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
-    name="FOLON-Downgrader",
-    version="version.txt",
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon=["img/FOLON256.ico"],
-)
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='FOLON-Downgrader',
+          debug=False, strip=False, upx=False, console=sys.platform != 'win32',
+          icon='img/FOLON256.ico' if sys.platform == 'win32' else None)
+executables = [exe]
+if sys.platform == 'win32':
+    executables.append(EXE(pyz, a.scripts, [], exclude_binaries=True,
+        name='FOLON-Downgrader-cli', debug=False, strip=False, upx=False, console=True,
+        icon='img/FOLON256.ico'))
+coll = COLLECT(*executables, a.binaries, a.datas, strip=False, upx=False, name='FOLON-Downgrader')

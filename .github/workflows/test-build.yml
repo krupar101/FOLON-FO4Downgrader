@@ -1,0 +1,51 @@
+name: Windows and Linux development builds
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements-build.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python -m PyInstaller --clean -y FOLON-Downgrader.spec
+      - name: Smoke test native executable
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            dist/FOLON-Downgrader/FOLON-Downgrader-cli.exe --help
+          else
+            dist/FOLON-Downgrader/FOLON-Downgrader --help
+          fi
+      - name: Build Linux GUI AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APPIMAGETOOL: /tmp/appimagetool.AppImage
+          APPIMAGETOOL_SHA256: ac7fd56feade6002c2f57db39587113275d351fce911a5fbb29ea84cd0666cab
+          APPIMAGE_RUNTIME: /tmp/appimage-runtime
+          APPIMAGE_RUNTIME_SHA256: 617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o "$APPIMAGETOOL"
+          curl --fail --location --proto '=https' --tlsv1.2 https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64 -o "$APPIMAGE_RUNTIME"
+          chmod +x "$APPIMAGETOOL"
+          packaging/linux/build-appimage.sh
+          dist/FOLON-Downgrader-x86_64.AppImage --appimage-extract-and-run --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FOLON-Downgrader-development-${{ matrix.os }}
+          path: dist/

@@ -1,6 +1,47 @@
 QWidget {
     padding: 5px;
-    background-color: rgba(0,0,0,0);
+    background-color: #222222;
+    color: #eee8f5;
+}
+/* Only the wizard's page surfaces are transparent, never top-level dialogs. */
+QWidget#Tab, QStackedWidget, QLabel {
+    background-color: transparent;
+}
+QDialog, QMenu {
+    background-color: #222222;
+    color: #eee8f5;
+}
+QAbstractItemView, QLineEdit, QComboBox, QPlainTextEdit {
+    background-color: #181818;
+    color: #eee8f5;
+    selection-background-color: #73509e;
+    selection-color: #ffffff;
+}
+QAbstractItemView::item:selected {
+    background-color: #73509e;
+    color: #ffffff;
+}
+QHeaderView::section {
+    background-color: #35303c;
+    color: #eee8f5;
+    border: 1px solid #62576e;
+    padding: 5px;
+}
+QComboBox QAbstractItemView {
+    background-color: #222222;
+    color: #eee8f5;
+}
+/* File views calculate row/header geometry themselves. Wizard-wide padding on
+   their internal viewports clips text, especially with Linux desktop styles. */
+QFileDialog QWidget {
+    padding: 0;
+}
+QFileDialog QLineEdit, QFileDialog QComboBox, QFileDialog QPushButton {
+    padding: 4px 6px;
+}
+QFileDialog QHeaderView::section {
+    padding: 4px 6px;
+    min-height: 1.4em;
 }
 #centralWidget {
     background-color: #222222;
@@ -12,7 +53,7 @@ QWidget:enabled {
     color: #ddd4ea;
 }
 QPushButton:enabled {
-    color: #ddd4ea;
+    color: #191021;
     background-color: #a380d2;
 }
 QPushButton#InstallButton {
@@ -34,8 +75,9 @@ QWidget#InsideTextBox {
     padding: 0px;
 }
 QLineEdit:disabled, QPushButton:disabled {
-    color: #3c215e;
-    border: 2px solid #3c215e;
+    color: #b0a6ba;
+    background-color: #35303c;
+    border: 2px solid #62576e;
 }
 QLineEdit:enabled {
     /*background-color: #111111;*/

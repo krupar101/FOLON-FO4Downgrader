@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "id": "fo4-1.10.163.0-en",
+  "steam_app_id": 377160,
+  "target_exe_version": "1.10.163.0",
+  "language": "english",
+  "inventory_complete": false,
+  "source_commit": "c53629d8dd3034776b6f58010e60bfa4cb52abe2",
+  "source_path": "Manually.md",
+  "source_sha256": "cb086320c2043987ca05ee61cb0aa64ff39b75bfadd02a935785be9cbda368fd",
+  "depots": [
+    {
+      "id": 377161,
+      "manifest": "7497069378349273908",
+      "files": []
+    },
+    {
+      "id": 377163,
+      "manifest": "5819088023757897745",
+      "files": []
+    },
+    {
+      "id": 377162,
+      "manifest": "5847529232406005096",
+      "files": []
+    },
+    {
+      "id": 377164,
+      "manifest": "2178106366609958945",
+      "files": []
+    },
+    {
+      "id": 435870,
+      "manifest": "1691678129192680960",
+      "files": []
+    },
+    {
+      "id": 435871,
+      "manifest": "5106118861901111234",
+      "files": []
+    },
+    {
+      "id": 435880,
+      "manifest": "1255562923187931216",
+      "files": []
+    },
+    {
+      "id": 435881,
+      "manifest": "1207717296920736193",
+      "files": []
+    },
+    {
+      "id": 435882,
+      "manifest": "8482181819175811242",
+      "files": []
+    },
+    {
+      "id": 480630,
+      "manifest": "5527412439359349504",
+      "files": []
+    },
+    {
+      "id": 480631,
+      "manifest": "6588493486198824788",
+      "files": []
+    },
+    {
+      "id": 393885,
+      "manifest": "5000262035721758737",
+      "files": []
+    },
+    {
+      "id": 490650,
+      "manifest": "4873048792354485093",
+      "files": []
+    },
+    {
+      "id": 393895,
+      "manifest": "7677765994120765493",
+      "files": []
+    }
+  ],
+  "overrides": {},
+  "remove": []
+}
