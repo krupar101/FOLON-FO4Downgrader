@@ -48,6 +48,22 @@ def make_request(args):
                    args.content_root.absolute() if args.content_root else None)
 
 
+
+def make_storage_request(args):
+    """Build a cleanup-only request without requiring a selected game installation.
+
+    This must never be used for preflight, download, or deployment. Its game
+    field is a non-existent placeholder, so cleanup still protects a game path
+    whenever the user explicitly selected one.
+    """
+    base = data_root()
+    game = args.game_path if args.game_path is not None else base / '.storage-management-only'
+    return Request(Path(game).resolve(), (args.staging_root or base / 'staging').absolute(),
+                   (args.steamcmd_root or base / 'steamcmd').absolute(),
+                   (args.state_root or base / 'transactions').absolute(), args.manifest.absolute(),
+                   args.content_root.absolute() if args.content_root else None)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     args = parser().parse_args(argv)

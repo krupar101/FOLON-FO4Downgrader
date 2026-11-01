@@ -708,6 +708,28 @@ class CleanupTests(unittest.TestCase):
         self.assertEqual(removable_downloads(self.request), {'bytes': 0, 'files': 0})
         self.assertTrue(unrelated.exists())
 
+    def test_linux32_downloads_visible_before_game_selection(self):
+        from types import SimpleNamespace
+        from folon_downgrader.cli import make_storage_request
+        from folon_downgrader.cleanup import removable_downloads
+        from folon_downgrader.platforms import data_root
+
+        with patch('folon_downgrader.cli.data_root', return_value=self.root / 'appdata'):
+            args = SimpleNamespace(game_path=None, staging_root=None,
+                                   steamcmd_root=None, state_root=None,
+                                   manifest=self.manifest_path, content_root=None)
+            request = make_storage_request(args)
+        linux_root = request.steamcmd / 'linux32/steamapps/content/app_377160'
+        for source in self.content.rglob('*'):
+            if source.is_file():
+                target = linux_root / source.relative_to(self.content)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.read_bytes())
+        self.assertEqual(removable_downloads(request)['files'], 2)
+        self.assertTrue(Engine(request).run('cleanup-downloads', True)['ok'])
+        self.assertEqual(removable_downloads(request)['files'], 0)
+        self.assertTrue((self.game / 'Fallout4.exe').exists())
+
     def test_interrupted_second_depot_is_counted_and_removed(self):
         from folon_downgrader.cleanup import removable_downloads
         partial = self.content / 'depot_2/Data/file.ba2'

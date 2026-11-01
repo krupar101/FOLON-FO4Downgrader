@@ -234,17 +234,11 @@ class Window(QWidget, FolonPages):
         self.PasswordEntry.setEchoMode(QLineEdit.Password if self.PasswordCheck.isChecked() else QLineEdit.Normal)
 
     def _storage_request(self):
-        from .cli import make_request
-        from .platforms import discover
-        game_path = self.game.text().strip()
-        if game_path:
-            self.args.game_path = Path(game_path)
-        else:
-            found = discover()
-            if len(found) != 1:
-                return None
-            self.args.game_path = found[0]
-        return make_request(self.args)
+        from .cli import make_storage_request
+        # Saved depots belong to the application, not a particular selected
+        # game path. Discover them even before the user selects Fallout 4.
+        self.args.game_path = Path(self.game.text().strip()) if self.game.text().strip() else None
+        return make_storage_request(self.args)
 
     def refresh_storage_status(self, *_):
         from .cleanup import removable_downloads
