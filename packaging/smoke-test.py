@@ -37,7 +37,22 @@ with tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryFile() as log:
             raise SystemExit(f'GUI exited prematurely: {process.returncode}')
     finally:
         if process.poll() is None:
-            process.terminate()
+            if sys.platform == 'win32':
+                # A one-file PyInstaller launcher owns a second GUI process.
+                # Stop its tree before removing the isolated EXE/cwd directories.
+                import psutil
+                try:
+                    children = psutil.Process(process.pid).children(recursive=True)
+                except psutil.NoSuchProcess:
+                    children = []
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               timeout=15)
+                _, alive = psutil.wait_procs(children, timeout=10)
+                if alive:
+                    raise RuntimeError('Packaged GUI child processes did not exit.')
+            else:
+                process.terminate()
             try:
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:
