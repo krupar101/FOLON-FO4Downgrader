@@ -308,6 +308,10 @@ class GuiBackendTests(unittest.TestCase):
 import sys
 print('ILocalize::AddFile() failed to load optional translation resource.', flush=True)
 print('Steam>', flush=True)
+assert input() == 'logout'
+print('Steam>', flush=True)
+assert input() == 'clear_credentials'
+print('Steam>', flush=True)
 assert input() == 'login example_user'
 print('password:', flush=True)
 secret = input()
@@ -328,6 +332,67 @@ assert input() == 'quit'
             self.assertNotIn(secret, json.dumps(events))
             self.assertEqual(events[-1]['stage'], 'download')
             self.assertEqual(list(root.iterdir()), [script])
+
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX executable fixture')
+    def test_cached_login_retries_cleanup_and_requires_password(self):
+        from folon_downgrader.steamcmd import gui_download
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            script = root / 'fake'
+            script.write_text('#!' + sys.executable + '\n' + r'''
+import sys
+print('Steam>', flush=True)
+for attempt in range(2):
+    assert input() == 'logout'
+    print('Steam>', flush=True)
+    assert input() == 'clear_credentials'
+    print('Steam>', flush=True)
+    assert input() == 'login example_user'
+    if attempt == 0:
+        print('Waiting for user info...OK\nSteam>', flush=True)
+    else:
+        print('password:', flush=True)
+        assert input() == 'correct-password'
+        print('Waiting for user info...OK\nSteam>', flush=True)
+assert input() == 'download_depot 377160 1 100'
+print('Depot download complete\nSteam>', flush=True)
+assert input() == 'quit'
+''')
+            script.chmod(0o700)
+            provider = SteamCmdProvider(root, 'linux')
+            provider.check = lambda: script
+            events = []
+            gui_download(provider, type('M', (), {'depots': [{'id': 1, 'manifest': '100'}]})(),
+                         lambda kind: 'example_user' if kind == 'username' else 'correct-password',
+                         events.append, timeout=5)
+            self.assertTrue(any('Refreshing' in e.get('message', '') for e in events))
+            self.assertEqual(events[-1]['stage'], 'download')
+
+    def test_persistent_cached_login_stops_without_downloading(self):
+        from folon_downgrader.steamcmd import gui_download
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            script = root / 'fake'
+            script.write_text('#!' + sys.executable + '\n' + r'''
+import sys
+print('Steam>', flush=True)
+for _ in range(2):
+    assert input() == 'logout'
+    print('Steam>', flush=True)
+    assert input() == 'clear_credentials'
+    print('Steam>', flush=True)
+    assert input() == 'login example_user'
+    print('Waiting for user info...OK\nSteam>', flush=True)
+assert sys.stdin.readline() == ''  # no depot should be requested
+''')
+            script.chmod(0o700)
+            provider = SteamCmdProvider(root, 'linux')
+            provider.check = lambda: script
+            with self.assertRaises(DowngradeError) as caught:
+                gui_download(provider, type('M', (), {'depots': [{'id': 1, 'manifest': '100'}]})(),
+                             lambda kind: 'example_user', lambda event: None, timeout=5)
+            self.assertEqual(caught.exception.code, 'AUTH_DENIED')
 
 
 class InventoryTests(unittest.TestCase):
@@ -540,6 +605,27 @@ class RootAliasTests(unittest.TestCase):
         self.assertEqual(request.game, self.game.resolve())
         self.assertEqual(request.content, self.content.resolve())
         self.assertTrue(Engine(request).run('deploy', True)['ok'])
+
+    def test_inside_accepts_linked_parent_outside_managed_root(self):
+        alias = self.root / 'drive-mapping'
+        try:
+            alias.symlink_to(self.root / 'library', target_is_directory=True)
+        except OSError:
+            self.skipTest('Host does not permit symlink creation')
+        game_via_alias = alias / 'steamapps/common/Fallout 4'
+        self.assertEqual(inside(game_via_alias, 'Fallout4.exe').read_bytes(), b'old exe')
+        self.assertEqual(inside(game_via_alias, 'Data/new.ba2').resolve(),
+                         (self.game / 'Data/new.ba2').resolve())
+
+    def test_inside_still_rejects_link_inside_managed_root(self):
+        outside = self.root / 'outside-dir'
+        outside.mkdir()
+        try:
+            (self.game / 'escape').symlink_to(outside, target_is_directory=True)
+        except OSError:
+            self.skipTest('Host does not permit symlink creation')
+        with self.assertRaises(DowngradeError):
+            inside(self.game, 'escape/file.txt')
 
     def test_alias_cannot_hide_overlapping_managed_roots(self):
         alias = self.root/'game-alias'

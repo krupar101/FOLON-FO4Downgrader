@@ -268,6 +268,8 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
     phase = 'startup'
     depot_index = 0
     logged_in = False
+    password_requested = False
+    session_retry_count = 0
     mobile_approval_notified = False
     downloaded = False
     started = time.monotonic()
@@ -277,7 +279,7 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
             cancel()
             if time.monotonic() - started > timeout:
                 fail('NETWORK_TIMEOUT', 'SteamCMD exceeded the total download time limit.')
-            if phase in ('startup', 'login') and time.monotonic() - phase_started > 300:
+            if phase in ('startup', 'logout', 'clear_credentials', 'login') and time.monotonic() - phase_started > 300:
                 fail('AUTH_PENDING', 'SteamCMD did not finish setup or authentication within five minutes. Retry login.')
             try:
                 raw = chunks.get(timeout=0.1)
@@ -293,14 +295,28 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                 error_code, message = session_failure(code, phase, depot_id)
                 fail(error_code, message)
             if phase == 'startup' and 'Steam>' in buffer:
+                # Clear the previous SteamCMD account before considering the
+                # credentials supplied for this download. Do not delete depot files.
+                send('logout')
+                phase, buffer = 'logout', ''
+                phase_started = time.monotonic()
+                emit({'stage': 'authenticate', 'auth_state': 'waiting',
+                      'message': 'Preparing a fresh Steam sign-in…'})
+                continue
+            if phase == 'logout' and 'Steam>' in buffer:
+                send('clear_credentials')
+                phase, buffer = 'clear_credentials', ''
+                phase_started = time.monotonic()
+                continue
+            if phase == 'clear_credentials' and 'Steam>' in buffer:
                 send('login ' + username)
-                username = ''
                 phase, buffer = 'login', ''
                 phase_started = time.monotonic()
-                emit({'stage': 'authenticate', 'message': 'Logging into Steam…'})
+                emit({'stage': 'authenticate', 'auth_state': 'waiting', 'message': 'Signing in to Steam…'})
                 continue
             if phase == 'login':
                 if 'password:' in lower or 'password: ' in lower:
+                    password_requested = True
                     secret = ask('password')
                     send(secret)
                     secret = ''
@@ -314,14 +330,29 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                     buffer = ''
                     phase_started = time.monotonic()
                     continue
-                if not mobile_approval_notified and 'mobile' in lower and ('confirm' in lower or 'approval' in lower):
-                    emit({'stage': 'authenticate', 'message': 'Approve the Steam login in your mobile app.'})
+                if not mobile_approval_notified and (('mobile' in lower and any(x in lower for x in ('confirm', 'approval', 'approve', 'notification', 'app'))) or ('steam guard' in lower and any(x in lower for x in ('confirm', 'approve', 'app')))):
+                    emit({'stage': 'authenticate', 'auth_state': 'mobile', 'message': 'Action required: open the Steam mobile app and approve this sign-in request.'})
                     mobile_approval_notified = True
                 if re.search(r'Waiting for user info.*?OK', buffer, re.DOTALL | re.IGNORECASE):
                     logged_in = True
                 if 'Steam>' in buffer:
                     if not logged_in:
                         fail('AUTH_PENDING', 'SteamCMD returned without a confirmed login. Retry authentication.')
+                    if not password_requested:
+                        # Some SteamCMD versions silently reuse a login even after
+                        # clear_credentials. Retry the cleanup *in the same session*
+                        # once, without touching downloaded depots or exposing an
+                        # internal cache-error message to users.
+                        if session_retry_count < 1:
+                            session_retry_count += 1
+                            send('logout')
+                            phase, buffer = 'logout', ''
+                            phase_started = time.monotonic()
+                            mobile_approval_notified = False
+                            emit({'stage': 'authenticate', 'auth_state': 'waiting',
+                                  'message': 'Refreshing Steam sign-in…'})
+                            continue
+                        fail('AUTH_DENIED', 'SteamCMD could not verify a fresh sign-in for the selected account. Please retry authentication.')
                     phase, buffer = 'download', ''
                     depot = manifest.depots[depot_index]
                     send(f"download_depot 377160 {depot['id']} {depot['manifest']}")

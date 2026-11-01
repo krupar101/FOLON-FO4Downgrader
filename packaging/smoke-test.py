@@ -5,11 +5,17 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import shutil
 
 root = Path(__file__).resolve().parent.parent
 if sys.platform == 'win32':
-    cli = [str(root / 'dist/Downgrader-2.0/Downgrader-2.0-cli.exe')]
-    gui = [str(root / 'dist/Downgrader-2.0/Downgrader-2.0.exe')]
+    # Verify both EXEs work with NO adjacent dist folders or resources.
+    isolated = tempfile.TemporaryDirectory(prefix='folon-standalone-')
+    isolated_dir = Path(isolated.name)
+    for name in ('Downgrader-2.0.exe', 'Downgrader-2.0-cli.exe'):
+        shutil.copy2(root / 'dist' / name, isolated_dir / name)
+    cli = [str(isolated_dir / 'Downgrader-2.0-cli.exe')]
+    gui = [str(isolated_dir / 'Downgrader-2.0.exe')]
 else:
     cli = gui = [str(root / 'dist/Downgrader-2.0-x86_64.AppImage'), '--appimage-extract-and-run']
 subprocess.run([*cli, '--help'], check=True, timeout=60)
@@ -37,3 +43,6 @@ with tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryFile() as log:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+
+if sys.platform == 'win32':
+    isolated.cleanup()

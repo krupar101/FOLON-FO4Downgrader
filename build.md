@@ -5,9 +5,17 @@ Both builds bundle the same FOLON Qt pages and launch the GUI by default; CLI fl
 remain available for diagnostics. Artifacts are development previews until the
 release gates in `docs/validation.md` pass.
 
-Windows: run `Build.bat`. Distribute the **whole** `dist/FOLON-Downgrader` directory,
-not just its `.exe`. The default executable uses a windowed bootloader;
-`FOLON-Downgrader-cli.exe` provides optional console diagnostics.
+Windows: run `Build.bat` from the extracted source directory. The script deletes
+old `dist` and `build` directories before rebuilding, then checks the resulting
+EXEs and runs a startup smoke test. **Do not launch an old executable copied
+elsewhere:** use the newly generated `dist/Downgrader-2.0.exe`. The standalone, windowed GUI executable is
+`dist/Downgrader-2.0.exe`: **distribute that single file**. No `_internal`
+folder, Python installation, or additional shipped files are needed. For
+console diagnostics, `dist/Downgrader-2.0-cli.exe` is also independently
+standalone; it is optional and does not need to accompany the GUI executable.
+PyInstaller's one-file bootloader temporarily extracts bundled files into a
+system temporary directory at runtime; it does not require files beside the EXE.
+The user still needs Windows, and the downgrader's normal Steam/game prerequisites.
 
 Linux:
 
@@ -28,7 +36,7 @@ exact official asset; checksum mismatches must stop the build. No automatic
 latest-tool execution is allowed. Result: `dist/FOLON-Downgrader-x86_64.AppImage`
 and its SHA-256 file. The GUI is the default even when opened from a file manager.
 
-CI runs tests and produces native one-folder builds. The Linux job also produces
+CI runs tests and produces standalone Windows executables and a Linux staging folder. The Linux job also produces
 an AppImage using the reviewed tool digest. It uploads development artifacts only;
 it does not publish GitHub Releases. Dependencies have explicit runtime versions;
 full transitive hash locks, action SHA pinning, reproducible build provenance and

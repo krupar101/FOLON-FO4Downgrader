@@ -3,187 +3,239 @@
 Derived from WindowsDowngrader.py at c53629d (repository MIT license).
 """
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QIcon, QFont, QPixmap
 from QLines import QHSeparationLine
 from pathlib import Path
 import sys
 
+
 class Resources:
     @staticmethod
     def resource_path(name):
         return str(Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent)) / name)
+
     @staticmethod
     def Read_Settings():
         return {'SteamPath': ''}
+
+
 Util = Resources
 
+
 class FolonPages:
-    def tab1UI(self):  # GUI
-        Settings = Util.Read_Settings()
-        layout = QFormLayout()
+    def _title_label(self, text):
+        label = QLabel(text)
+        label.setObjectName('PageTitle')
+        label.setWordWrap(True)
+        label.setFont(QFont('Overseer', 26))
+        return label
 
-        Header = QLabel("Please select your Fallout 4 folder.")
-        Header.setFont(QFont("Overseer", 30))
-        layout.addRow(Header)
-        layout.addRow(
-            QLabel(
-                "<p>To downgrade Fallout 4 we need its Steam installation folder.</p>"
-            )
-        )
-        layout.addRow(
-            QLabel(
-                "<p>The folder <b>should</b> be the one containing a Fallout4.exe file.</p>"
-            )
-        )
+    def _lead_label(self, text):
+        label = QLabel(text)
+        label.setObjectName('PageLead')
+        label.setWordWrap(True)
+        return label
 
-        hbox = QHBoxLayout()
-        hboxwidget = QWidget()
+    def _hint_label(self, text):
+        label = QLabel(text)
+        label.setObjectName('HintText')
+        label.setWordWrap(True)
+        return label
+
+    def _card(self):
+        card = QWidget()
+        card.setObjectName('ContentCard')
+        return card
+
+    def tab1UI(self):
+        settings = Util.Read_Settings()
+        page_layout = QVBoxLayout()
+        page_layout.setSpacing(10)
+
+        page_layout.addWidget(self._title_label('Select your Fallout 4 folder'))
+        page_layout.addWidget(self._lead_label(
+            'Choose the Steam installation folder for Fallout 4. This should be the folder that contains Fallout4.exe.'
+        ))
+
+        card = self._card()
+        card_layout = QVBoxLayout(card)
+        card_layout.setSpacing(6)
+        card_layout.addWidget(self._hint_label('Game folder'))
+
+        input_row = QHBoxLayout()
+        input_row.setSpacing(8)
 
         self.PathEntry = QLineEdit()
         self.PathEntry.returnPressed.connect(self.SubmitPath)
-        self.PathEntry.setObjectName("InsideTextBox")
-        if Settings["SteamPath"] != "":
-            self.PathEntry.setText(Settings["SteamPath"])
+        self.PathEntry.setObjectName('InsideTextBox')
+        self.PathEntry.setPlaceholderText('Select the folder containing Fallout4.exe')
+        if settings['SteamPath'] != '':
+            self.PathEntry.setText(settings['SteamPath'])
             self.SubmitButton.setEnabled(True)
         else:
             self.SubmitButton.setEnabled(False)
         self.PathEntry.textChanged.connect(self.edit_text_changed1)
 
-        self.PathButton = QPushButton()
-        self.PathButton.setIcon(QIcon(Util.resource_path("img/folder.svg")))
-        self.PathButton.setObjectName("PathButton")
+        self.PathButton = QPushButton('Browse')
+        self.PathButton.setIcon(QIcon(Util.resource_path('img/folder.svg')))
+        self.PathButton.setObjectName('SecondaryAction')
         self.PathButton.pressed.connect(self.GetDirectory)
 
-        hbox.addWidget(self.PathEntry)
-        hbox.addWidget(self.PathButton)
-        hboxwidget.setObjectName("TextBox")
-        hboxwidget.setLayout(hbox)
+        self.FindButton = QPushButton('Auto-detect')
+        self.FindButton.setObjectName('SecondaryAction')
+        self.FindButton.pressed.connect(self.find_games)
 
-        layout.addRow(QLabel("Fallout 4 Path:"), hboxwidget)
+        input_row.addWidget(self.PathEntry, 1)
+        input_row.addWidget(self.PathButton)
+        input_row.addWidget(self.FindButton)
+        card_layout.addLayout(input_row)
+        card_layout.addWidget(self._hint_label('Tip: if you use Steam, auto-detect will try to find the correct installation automatically.'))
 
-        self.tab1.setLayout(layout)
+        page_layout.addWidget(card)
+        page_layout.addStretch(1)
+        self.tab1.setLayout(page_layout)
 
-    def tab2UI(self):  # GUI
+    def tab2UI(self):
         self.FinishedLogging = False
-        self.SteamGuardCode = ""
+        self.SteamGuardCode = ''
 
-        layout = QFormLayout()
+        page_layout = QVBoxLayout()
+        page_layout.setSpacing(10)
+        page_layout.addWidget(self._title_label('Sign in to Steam'))
+        page_layout.addWidget(self._lead_label(
+            'The downgrader needs Steam access to download the required depot files. Your credentials are only passed to SteamCMD and are not stored by this app.'
+        ))
 
-        Header = QLabel("Please log into Steam before downgrading Fallout 4.")
-        Header.setFont(QFont("Overseer", 30))
-        layout.addRow(Header)
-        layout.addRow(
-            QLabel(
-                "<p>To downgrade Fallout 4 we will need to download files via Steam, please login to do so.</p>"
-            )
-        )
-        layout.addRow(
-            QLabel("<p>Your password is sent directly to SteamCMD and is not saved by this app.</p>")
-        )
+        card = self._card()
+        form = QFormLayout(card)
+        form.setSpacing(8)
+        form.setLabelAlignment(Qt.AlignLeft)
+        form.setFormAlignment(Qt.AlignTop)
 
         self.UsernameEntry = QLineEdit()
         self.UsernameEntry.returnPressed.connect(self.GoToPassword)
         self.UsernameEntry.textChanged.connect(self.edit_text_changed2)
-        self.UsernameEntry.setObjectName("TextBox")
+        self.UsernameEntry.setPlaceholderText('Steam username')
+        self.UsernameEntry.setMinimumHeight(max(40, self.UsernameEntry.fontMetrics().height() + 20))
 
         self.PasswordEntry = QLineEdit()
         self.PasswordEntry.setEchoMode(QLineEdit.EchoMode.Password)
         self.PasswordEntry.returnPressed.connect(self.SteamSubmit)
         self.PasswordEntry.textChanged.connect(self.edit_text_changed2)
-        self.PasswordEntry.setObjectName("TextBox")
+        self.PasswordEntry.setPlaceholderText('Steam password')
+        self.PasswordEntry.setMinimumHeight(max(40, self.PasswordEntry.fontMetrics().height() + 20))
 
-        self.PasswordCheck = QCheckBox()
+        self.PasswordCheck = QCheckBox('Hide password')
         self.PasswordCheck.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.PasswordCheck.setChecked(True)
         self.PasswordCheck.stateChanged.connect(self.ChangeHiddenPassword)
 
-        CheckBoxes = QWidget()
-        CheckLayout = QHBoxLayout()
+        options = QWidget()
+        options_row = QHBoxLayout(options)
+        options_row.setContentsMargins(0, 0, 0, 0)
+        options_row.setSpacing(18)
+        options_row.addWidget(self.PasswordCheck)
+        options_row.addStretch(1)
 
-        CheckLayout.addWidget(QLabel("Password hidden:"))
-        CheckLayout.addWidget(self.PasswordCheck)
+        form.addRow('Username', self.UsernameEntry)
+        form.addRow('Password', self.PasswordEntry)
+        form.addRow('', options)
 
-        self.SteamGuardCheck = QCheckBox()
-        self.SteamGuardCheck.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.SteamGuardCheck.setChecked(True)
+        page_layout.addWidget(card)
+        page_layout.addWidget(self._hint_label(
+            'Steam Guard: if verification is required, enter the code when prompted or approve the sign-in in your Steam mobile app.'
+        ))
 
-        CheckLayout.addWidget(QLabel("<p>Using <b>mobile</b> Steam Guard:</p>"))
-        CheckLayout.addWidget(self.SteamGuardCheck)
-
-        CheckLayout.addStretch()
-
-        CheckBoxes.setLayout(CheckLayout)
-
-        layout.addRow("Username:", self.UsernameEntry)
-        layout.addRow("Password:", self.PasswordEntry)
-        layout.addRow(CheckBoxes)
-
-        Box = QHBoxLayout()
-
-        AlertIcon = QLabel()
-        AlertIcon.setPixmap(QPixmap(Util.resource_path("img/alert.svg")))
-
-        AlertLabel = QLabel(
-            "<a style='color:White' href='https://github.com/Fallout-London/FOLON-FO4Downgrader/blob/main/Manually.md'>You can also do this process manually if you'd like.</a>"
+        info = self._card()
+        info_layout = QHBoxLayout(info)
+        info_layout.setSpacing(10)
+        alert_icon = QLabel()
+        alert_icon.setPixmap(QPixmap(Util.resource_path('img/alert.svg')))
+        info_layout.addWidget(alert_icon, 0, Qt.AlignTop)
+        manual = QLabel(
+            "<a style='color:#d8c1fa' href='https://github.com/Fallout-London/FOLON-FO4Downgrader/blob/main/Manually.md'>Prefer a manual route? Read the manual downgrade guide.</a>"
         )
-        AlertLabel.setOpenExternalLinks(True)
+        manual.setOpenExternalLinks(True)
+        manual.setWordWrap(True)
+        info_layout.addWidget(manual, 1)
+        page_layout.addWidget(info)
+        page_layout.addStretch(1)
 
-        Box.addWidget(AlertIcon)
-        Box.addWidget(AlertLabel)
-        Box.addStretch()
+        self.tab2.setLayout(page_layout)
 
-        layout.addRow(Box)
-
-        self.tab2.setLayout(layout)
-
-    def tab3UI(self):  # GUI
+    def tab3UI(self):
         self.Downloaded = 0
         self.DownloadFailed = False
-        layout = QFormLayout()
-        layout.addRow(
-            QLabel(
-                "<p>Downgrading can take several minutes. Progress will appear below.</p>"
-            )
-        )
+        page_layout = QVBoxLayout()
+        page_layout.setSpacing(10)
 
-        self.InstallButton = QPushButton('Downgrade Fallout 4')
-        self.InstallButton.setObjectName("InstallButton")
-        self.InstallButton.setFont(QFont("Overseer", 25))
+        page_layout.addWidget(self._title_label('Ready to downgrade Fallout 4'))
+        page_layout.addWidget(self._lead_label(
+            'When you continue, the downgrader will apply the prepared files to your Fallout 4 installation and verify the result.'
+        ))
+
+        card = self._card()
+        card_layout = QVBoxLayout(card)
+        summary = QLabel(
+            '<ul>'
+            '<li>Prepare the target files</li>'
+            '<li>Install the downgrade</li>'
+            '<li>Verify the game files</li>'
+            '</ul>'
+        )
+        summary.setWordWrap(True)
+        card_layout.addWidget(summary)
+        card_layout.addWidget(self._hint_label('This can take several minutes. Keep the window open until the process finishes.'))
+        page_layout.addWidget(card)
+
+        button_row = QHBoxLayout()
+        button_row.addStretch(1)
+        self.InstallButton = QPushButton('Start downgrade')
+        self.InstallButton.setObjectName('InstallButton')
+        self.InstallButton.setMinimumWidth(240)
         self.InstallButton.pressed.connect(self.OpenDepotsDialog)
-        layout.addRow(self.InstallButton)
+        button_row.addWidget(self.InstallButton)
+        button_row.addStretch(1)
+        page_layout.addLayout(button_row)
+        page_layout.addStretch(1)
 
-        self.tab3.setLayout(layout)
+        self.tab3.setLayout(page_layout)
 
-    def tab4UI(self):  # GUI
-        layout = QGridLayout()
+    def tab4UI(self):
+        page_layout = QVBoxLayout()
+        page_layout.setSpacing(10)
 
-        TextLayout = QVBoxLayout()
-        Header = QLabel("Done Downgrading")
-        Header.setFont(QFont("Overseer", 30))
-        TextLayout.addWidget(Header)
-        TextLayout.addWidget(
-            QLabel("<p>Thanks for using the Downgrader,</p>"),
+        page_layout.addWidget(self._title_label('Downgrade complete'))
+        page_layout.addWidget(self._lead_label(
+            'Fallout 4 has been downgraded successfully. You can now close the downgrader or visit the community if you want help, updates, or troubleshooting.'
+        ))
+
+        card = self._card()
+        card_layout = QVBoxLayout(card)
+        card_layout.setSpacing(6)
+        card_layout.addWidget(self._hint_label('Next steps'))
+        next_steps = QLabel(
+            '<ul>'
+            '<li>Launch the game normally or continue with your Fallout London setup.</li>'
+            '<li>If you kept the downloaded depots, you can reuse them later.</li>'
+            '<li>If you run into problems, open the technical details or ask the community.</li>'
+            '</ul>'
         )
-        TextLayout.addWidget(
-            QLabel("<p>if you found any issues or just wanna chat.</p>")
-        )
-        TextLayout.addWidget(
-            QLabel("<p>Join the Discord server!</p>"),
-        )
-        layout.addLayout(TextLayout, 0, 0)
+        next_steps.setWordWrap(True)
+        card_layout.addWidget(next_steps)
+        page_layout.addWidget(card)
 
-        icon = QIcon(Util.resource_path("img/FOLON256.png"))
-        self.DiscordButton = QPushButton()
-        self.DiscordButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.DiscordButton.setIcon(icon)
-        self.DiscordButton.setIconSize(QSize(200, 200))
-
+        action_row = QHBoxLayout()
+        action_row.addStretch(1)
+        self.DiscordButton = QPushButton('Open Discord community')
+        self.DiscordButton.setObjectName('SecondaryAction')
+        self.DiscordButton.setIcon(QIcon(Util.resource_path('img/FOLON256.png')))
+        self.DiscordButton.setIconSize(QSize(20, 20))
         self.DiscordButton.pressed.connect(self.OpenDiscord)
+        action_row.addWidget(self.DiscordButton)
+        action_row.addStretch(1)
+        page_layout.addLayout(action_row)
+        page_layout.addStretch(1)
 
-        layout.addWidget(self.DiscordButton, 0, 1, 1, 1)
-
-        separator_horizontal = QHSeparationLine()
-        layout.addWidget(separator_horizontal, 1, 0, 1, 2)
-
-        self.tab4.setLayout(layout)
+        self.tab4.setLayout(page_layout)

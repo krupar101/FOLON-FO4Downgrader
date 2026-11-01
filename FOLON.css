@@ -2,126 +2,270 @@ QWidget {
     padding: 5px;
     background-color: #222222;
     color: #eee8f5;
+    font-size: 13px;
 }
-/* Only the wizard's page surfaces are transparent, never top-level dialogs. */
-QWidget#Tab, QStackedWidget, QLabel {
+
+/* Only the wizard page surfaces are transparent, never top-level dialogs. */
+QWidget#Tab,
+QStackedWidget,
+QLabel {
     background-color: transparent;
 }
-QDialog, QMenu {
+
+QDialog,
+QMenu {
     background-color: #222222;
     color: #eee8f5;
 }
-QAbstractItemView, QLineEdit, QComboBox, QPlainTextEdit {
+
+QAbstractItemView,
+QLineEdit,
+QComboBox,
+QPlainTextEdit {
     background-color: #181818;
     color: #eee8f5;
     selection-background-color: #73509e;
     selection-color: #ffffff;
 }
+
 QAbstractItemView::item:selected {
     background-color: #73509e;
     color: #ffffff;
 }
+
 QHeaderView::section {
     background-color: #35303c;
     color: #eee8f5;
     border: 1px solid #62576e;
     padding: 5px;
 }
+
 QComboBox QAbstractItemView {
     background-color: #222222;
     color: #eee8f5;
 }
-/* File views calculate row/header geometry themselves. Wizard-wide padding on
-   their internal viewports clips text, especially with Linux desktop styles. */
+
+/* File views calculate row/header geometry themselves. */
 QFileDialog QWidget {
     padding: 0;
 }
-QFileDialog QLineEdit, QFileDialog QComboBox, QFileDialog QPushButton {
+QFileDialog QLineEdit,
+QFileDialog QComboBox,
+QFileDialog QPushButton {
     padding: 4px 6px;
 }
 QFileDialog QHeaderView::section {
     padding: 4px 6px;
     min-height: 1.4em;
 }
+
 #centralWidget {
     background-color: #222222;
     background-image: url("FOLON-Downgrader-Files/FOLONBackground.png");
     background-repeat: no-repeat;
     background-position: center;
 }
+
 QWidget:enabled {
     color: #ddd4ea;
 }
+
+QLabel#PageTitle {
+    color: #f2e8ff;
+    font-size: 27px;
+    font-weight: 700;
+    padding: 0;
+}
+
+QLabel#PageLead {
+    color: #d8caeb;
+    font-size: 14px;
+    line-height: 1.35em;
+    padding-top: 0;
+}
+
+QLabel#HintText {
+    color: #bcaed0;
+    font-size: 12px;
+    padding: 0;
+}
+
+QWidget#ContentCard {
+    background-color: rgba(40, 35, 46, 0.94);
+    border: 1px solid #66537c;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+QLabel#ImageLabel,
+QPixmap {
+    border-radius: 50px;
+}
+
+QLineEdit,
+QPlainTextEdit,
+QComboBox {
+    border: 1px solid #62576e;
+    border-radius: 6px;
+    padding: 5px 10px;
+}
+
+QLineEdit:disabled,
+QPushButton:disabled {
+    color: #b0a6ba;
+    background-color: #35303c;
+    border: 1px solid #62576e;
+}
+
+QLineEdit::placeholder {
+    color: #8f839f;
+}
+
+QPushButton {
+    border-radius: 6px;
+    padding: 8px 14px;
+    border: 1px solid #a380d2;
+}
+
 QPushButton:enabled {
     color: #191021;
     background-color: #a380d2;
 }
-QPushButton#InstallButton {
-    margin-left: 100px;
-    margin-right: 100px;
-    padding-top: 20px;
-    padding-bottom: 20px;
-    /*background-color: #ee8695;
-    color: black;*/
+
+QPushButton::hover,
+QCheckBox::indicator::hover {
+    background-color: #b392de;
 }
-/*QPushButton#InstallButton::Hover {
-    background-color: #fbbbad;
-}*/
+
+QPushButton#PrimaryAction,
+QPushButton#InstallButton {
+    min-height: 20px;
+    padding: 10px 18px;
+    font-weight: 600;
+}
+
+QPushButton#SecondaryAction,
+QPushButton#PathButton {
+    background-color: #35303c;
+    color: #eee8f5;
+    border: 1px solid #62576e;
+}
+
+QPushButton#SecondaryAction::hover,
+QPushButton#PathButton::hover {
+    background-color: #433b4b;
+}
+
+QPushButton#InstallButton {
+    margin: 0;
+}
+
 QWidget#TextBox {
     border-bottom: 2px solid #a380d2;
 }
+
 QWidget#InsideTextBox {
     margin: 0;
-    padding: 0px;
-}
-QLineEdit:disabled, QPushButton:disabled {
-    color: #b0a6ba;
-    background-color: #35303c;
-    border: 2px solid #62576e;
-}
-QLineEdit:enabled {
-    /*background-color: #111111;*/
-    border-radius: 0;
-}
-QPushButton{
-    border-radius: 5%;
-}
-QPushButton#PathButton{
     padding: 0;
-    margin: 0;
-    width: 30%;
-    height: 30%;
-    background: none;
 }
-QLineEdit::placeholder {
-    color: grey;
-}
-QPushButton::Hover, QCheckBox::indicator::Hover {
-    background-color: #a887d5;
-}
-QLabel#ImageLabel ,QPixmap{
-    border-radius: 50px;
-}
+
 QProgressBar {
     qproperty-alignment: AlignCenter;
     border: 2px solid #a380d2;
-    border-radius: 5%;
+    border-radius: 6px;
+    min-height: 24px;
+    padding: 2px;
 }
+
 QProgressBar::chunk {
     color: white;
-    border-radius: 5%;
+    border-radius: 4px;
     background-color: #a380d2;
 }
+
 QCheckBox {
     background-color: none;
     border: none;
+    spacing: 8px;
 }
+
 QCheckBox::indicator {
-    width: 30%;
-    height: 30%;
+    width: 16px;
+    height: 16px;
     background-color: #a380d2;
-    border-radius: 4%;
+    border-radius: 3px;
 }
-QCheckBox::indicator::Checked {
+
+QCheckBox::indicator::checked {
     image: url("FOLON-Downgrader-Files/check.svg");
 }
+
+QWidget#ActivityPanel {
+    background-color: rgba(40, 35, 46, 0.96);
+    border: 1px solid #66537c;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+QLabel#ActivityTitle {
+    color: #e6d6ff;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+QLabel#ActivityDetail {
+    color: #efe6fb;
+    font-size: 14px;
+    padding-top: 2px;
+}
+
+QLabel#ActivityStep {
+    color: #aaa0b4;
+    font-size: 11px;
+    padding: 6px 8px;
+}
+
+QLabel#ActivityStep[stepState="active"] {
+    color: #f4ebff;
+    font-weight: 700;
+    background-color: #4c3861;
+    border-radius: 4px;
+}
+
+QLabel#ActivityStep[stepState="done"] {
+    color: #cbb3eb;
+}
+
+QToolButton {
+    color: #d8c1fa;
+    background-color: transparent;
+    border: none;
+    text-align: left;
+    padding: 4px 0;
+}
+
+QPlainTextEdit {
+    border-radius: 6px;
+}
+
+/* Authentication is an explicit action, not an invisible modal prompt. */
+QWidget#AuthenticationPanel {
+    background-color: #352b41;
+    border: 1px solid #a380d2;
+    border-radius: 7px;
+    padding: 8px;
+}
+QLabel#AuthenticationTitle { color: #f3e6ff; font-weight: bold; font-size: 14px; }
+QWidget#AuthenticationPanel QLineEdit { min-height: 26px; }
+
+/* One compact error, not the entire progress tracker above a form. */
+QLabel#ErrorBanner {
+    background-color: #382a38;
+    color: #f1ddec;
+    border: 1px solid #ab718b;
+    border-radius: 7px;
+    padding: 12px;
+    font-size: 13px;
+}
+
+QLabel#MobileApprovalHelp { background-color: #392f46; color: #f5eafd; border: 1px solid #a380d2; border-radius: 6px; padding: 12px; font-size: 14px; font-weight: 600; }

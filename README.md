@@ -86,3 +86,7 @@ Original upstream: [Fallout-London/FOLON-FO4Downgrader](https://github.com/Fallo
 See the MIT [license](LICENSE). Thanks to the original Team FOLON contributors,
 SteamRE, and the referenced community implementations. This development branch
 has not been endorsed or released by Team FOLON.
+
+### Visual progress in the desktop app
+
+Operations now show a milestone tracker (current step and completed steps) and an activity bar. The activity bar is indeterminate because SteamCMD and file hashing do not provide a trustworthy overall byte percentage. Use **Show technical details** to expand the existing log; failures automatically reveal it.

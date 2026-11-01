@@ -25,6 +25,9 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - if: runner.os == 'Windows'
         run: python -m PyInstaller --clean -y FOLON-Downgrader.spec
+      - name: Check standalone Windows output
+        if: runner.os == 'Windows'
+        run: python packaging/verify-windows-onefile.py
       - name: Build Linux GUI AppImage
         if: runner.os == 'Linux'
         shell: bash
@@ -46,6 +49,6 @@ jobs:
           name: Downgrader-2.0-${{ matrix.os }}
           if-no-files-found: error
           path: |
-            dist/Downgrader-2.0/
+            dist/*.exe
             dist/*.AppImage
             dist/*.sha256

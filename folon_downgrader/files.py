@@ -27,16 +27,16 @@ def is_link(path):
 def inside(root, name):
     root = Path(root)
     parts = relative_name(name)
-    # Check ancestors as well, including junctions on Windows.
-    for p in (root, *root.parents):
-        if is_link(p):
-            fail('UNSAFE_PATH', 'A managed directory contains a symlink or junction.')
+    # The user-selected root may be reached through a Wine drive mapping,
+    # mount point, or directory alias. Resolve it as the trust boundary;
+    # inspecting its ancestors would reject Wine Z: even for safe files.
+    resolved_root = root.resolve()
     current = root
     for component in parts:
         current /= component
         if is_link(current):
             fail('UNSAFE_PATH', 'A file path contains a symlink or junction.')
-    if not current.resolve().is_relative_to(root.resolve()):
+    if not current.resolve().is_relative_to(resolved_root):
         fail('UNSAFE_PATH', 'A file escapes its managed directory.')
     return current
 
