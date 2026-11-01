@@ -80,3 +80,30 @@ def check_not_running():
                 fail('GAME_RUNNING', 'Close Fallout 4, its launcher and F4SE before deployment.')
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
+
+
+def steam_processes():
+    import psutil
+    return [p for p in psutil.process_iter(['name'])
+            if (p.info['name'] or '').lower() in ('steam', 'steam.exe')]
+
+
+def shutdown_steam(cancel=lambda: None):
+    """Request Steam's normal shutdown, never force-kill it."""
+    import subprocess
+    import time
+    import psutil
+    processes = steam_processes()
+    if not processes:
+        return
+    try:
+        executable = processes[0].exe()
+        subprocess.Popen([executable, '-shutdown'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deadline = time.monotonic() + 30
+        while steam_processes():
+            cancel()
+            if time.monotonic() >= deadline:
+                fail('STEAM_RUNNING', 'Steam did not exit. Close Steam and retry the downgrade.')
+            time.sleep(0.2)
+    except (OSError, psutil.Error):
+        fail('STEAM_RUNNING', 'Could not request Steam shutdown. Close Steam and retry the downgrade.')

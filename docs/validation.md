@@ -27,7 +27,7 @@ require the same existing Qt UI on both platforms, with a Linux AppImage.
 
 | Area | Remaining work |
 |---|---|
-| Release metadata | Authenticated exports/downloads for all 14 depots, trustworthy full inventory, explicit overlapping-file ownership, exact recoverable cleanup list, independent target validation |
+| Release metadata | Candidate now covers all 14 downloaded depots with cache size/SHA-1 checks, SHA-256 inventory, explicit overlap ownership and exact cleanup; independent target/game-launch validation remains |
 | Real authentication | Windows and Linux password/mobile approval/email/code flow validation; unexpected prompts and localized output; review SteamCMD-owned session/log persistence |
 | Safety breadth | Full T01–T26 matrix, real process-death/cancel timing, Windows reparse-point tests, filesystem/power-loss tests and per-volume space estimates on actual installations |
 | Preflight | Complete DLC entitlement/build evidence and library/runtime diagnostics; richer game/Steam process handling |
@@ -70,8 +70,11 @@ Local result: **31 tests passed**, including the Qt offscreen smoke test. The
 49 MiB development AppImage built successfully, `--help` exited 0, and its default
 GUI stayed running for the offscreen startup test until deliberately terminated.
 Artifact: `dist/FOLON-Downgrader-x86_64.AppImage`.
-SHA-256: `fbf863e677e12bc725b064dcfadbe9a79179b457ba64699c6448f7966eb0cc93`.
-No real game was downgraded by this session. Development work is on
+SHA-256: `c9418c999db228c61638e5031688f97686fa9c3dd7a5d7db4997d2f1810363b8`.
+The active game installation was not downgraded. A disposable clean copy passed
+deployment to 1.10.163.0 and rollback to 1.11.240.0, with all 143 restored game
+files checked against the baseline by SHA-256; see `linux-live-test.md`.
+Development work is on
 `fix/cross-platform-downgrader` for review; publishing this branch is not a release.
 
 Folder-chooser rendering fix: transparent styling is now limited to wizard page
@@ -84,3 +87,38 @@ Follow-up folder-header fix: removed inherited wizard padding from file-dialog
 internal widgets and gave header sections explicit spacing. Visually checked the
 chooser at a compact window size; header viewport fits its font metrics without
 vertical clipping. Rebuilt the AppImage with this stylesheet.
+
+SteamCMD startup-parser follow-up: 35 local tests pass, including a pipe-based
+login/download fixture preceded by a benign first-run localization warning.
+The AppImage was rebuilt; subsequent Linux mobile approval and all 14 downloads
+succeeded. Other authentication methods and Windows remain untested.
+
+Inventory follow-up: 46 local tests passed, including cached Steam manifest
+parsing and deployment exclusion/cleanup rollback. These source changes are
+newer than the AppImage hash above. The default bundled manifest remains disabled;
+only the disposable rehearsal used an enabled local test manifest.
+
+## Performance and optional-backup follow-up
+
+User-directed behavior supersedes the original mandatory-backup plan. Backups
+are now opt-in (GUI checkbox / CLI `--backup`), default off. Deployment no longer
+creates a staging copy. In-memory verification records avoid rehashing unchanged
+downloads between wizard steps; identity/size/mtime/ctime changes invalidate them.
+Copying hashes the transferred bytes before atomic replacement, with bounded
+memory, and final installed-file verification remains. A new app session verifies
+again. No persistent cache receipt is trusted to bypass download verification.
+
+No-backup interruptions retain a journal and support retry, not rollback. Steam
+shutdown is requested only after GUI confirmation, waits for exit and times out
+without force-killing. CLI mutation is blocked while Steam is running.
+These changes do not modify an already-running installer or its backup policy.
+
+## Hosted-build follow-up
+
+Run 41252398596 passed Linux but failed two Windows tests before packaging:
+case-sensitive comparison of a resolved Windows path in fault injection, and a
+Unicode VDF fixture written with the platform-default encoding. The fixtures now
+resolve both paths and explicitly write UTF-8. Local suite: 73 tests pass (this
+includes inherited deployment cases repeated under the fast-path test class).
+The workflow now pins versioned AppImage tools and action commits, avoids building
+Linux twice, and checks packaged GUI startup as well as CLI help.

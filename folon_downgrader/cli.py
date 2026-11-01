@@ -20,6 +20,7 @@ def parser():
     p.add_argument('--staging-root', type=Path)
     p.add_argument('--steamcmd-root', type=Path)
     p.add_argument('--backup-root', type=Path)
+    p.add_argument('--backup', action='store_true', help='Keep original files for rollback (requires additional disk space)')
     p.add_argument('--content-root', type=Path, help='Existing app_377160 directory to verify/deploy')
     p.add_argument('--manifest', type=Path, default=manifest_path(), help='Trusted release-owned inventory; do not use untrusted manifests')
     p.add_argument('--json', action='store_true', help='Print structured result (not available for interactive download)')
@@ -44,7 +45,7 @@ def make_request(args):
     return Request(game.resolve(), (args.staging_root or base / 'staging').absolute(),
                    (args.steamcmd_root or base / 'steamcmd').absolute(),
                    (args.backup_root or base / 'rollback').absolute(), args.manifest.absolute(),
-                   args.content_root.absolute() if args.content_root else None)
+                   args.content_root.absolute() if args.content_root else None, args.backup)
 
 
 def main(argv=None):

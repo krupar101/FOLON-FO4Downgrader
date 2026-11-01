@@ -6,7 +6,7 @@ import sys
 
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QApplication, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
     QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QPlainTextEdit, QProgressBar,
     QStackedWidget, QVBoxLayout, QWidget)
 
@@ -22,11 +22,14 @@ class Worker(QThread):
     progress = pyqtSignal(dict)
     prompt = pyqtSignal(str)
 
-    def __init__(self, request, action):
+    def __init__(self, request, action, verified_cache=None, close_steam=False):
         super().__init__()
         self.answers = queue.Queue()
         self.engine = Engine(request, self.progress.emit, self.ask)
         self.action = action
+        self.close_steam = close_steam
+        if verified_cache is not None:
+            self.engine.verified_cache = verified_cache
 
     def ask(self, kind):
         self.prompt.emit(kind)
@@ -41,6 +44,14 @@ class Worker(QThread):
                 pass
 
     def run(self):
+        if self.close_steam:
+            from .platforms import shutdown_steam
+            try:
+                self.progress.emit({'stage': 'steam_shutdown', 'message': 'Closing Steam…'})
+                shutdown_steam(self.engine.check_cancel)
+            except DowngradeError as error:
+                self.failed.emit({'ok': False, 'error_code': error.code, 'message': error.message})
+                return
         result = self.engine.run(self.action, confirmed=True)
         (self.succeeded if result['ok'] else self.failed).emit(result)
 
@@ -50,6 +61,7 @@ class Window(QWidget, FolonPages):
         super().__init__()
         self.args = args
         self.worker = None
+        self.verified_cache = {}
         self.TabIndex = 1
         self.setObjectName('centralWidget')
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -71,6 +83,9 @@ class Window(QWidget, FolonPages):
             setattr(self, 'tab' + str(number), page)
             self.pages.addWidget(page)
             getattr(self, 'tab' + str(number) + 'UI')()
+        self.backup_option = QCheckBox('Keep a backup for restoration (uses additional disk space)')
+        self.backup_option.setChecked(args.backup)
+        self.tab3.layout().insertRow(1, self.backup_option)
         self.game = self.PathEntry
         if args.game_path:
             self.game.setText(str(args.game_path))
@@ -93,7 +108,7 @@ class Window(QWidget, FolonPages):
         footer.addWidget(self.SubmitButton)
         layout.addLayout(footer)
         self.controls = (self.SubmitButton, self.InstallButton, self.rollback, self.PathButton,
-                         self.game, self.UsernameEntry, self.PasswordEntry)
+                         self.game, self.UsernameEntry, self.PasswordEntry, self.backup_option)
         resources = Path(Resources.resource_path('.'))
         style = (resources / 'FOLON.css').read_text(encoding='utf-8')
         style = style.replace('FOLON-Downgrader-Files/FOLONBackground.png', (resources / 'img/FOLONBackground.png').as_posix())
@@ -164,14 +179,22 @@ class Window(QWidget, FolonPages):
         from .cli import make_request
         self.args.game_path = Path(self.game.text()) if self.game.text() else None
         try:
+            self.args.backup = self.backup_option.isChecked()
             request = make_request(self.args)
         except (OSError, DowngradeError) as error:
             self.output.appendPlainText(str(error) if isinstance(error, DowngradeError) else 'Cannot access the selected directory.')
             return
+        close_steam = False
         if action in ('deploy', 'rollback'):
-            if QMessageBox.question(self, 'Confirm game changes', f'{action.title()}\nGame: {request.game}\nBackups: {request.backup}\nContinue?') != QMessageBox.Yes:
+            if QMessageBox.question(self, 'Confirm game changes', f'{action.title()}\nGame: {request.game}\nBackup: {str(request.backup) if request.backup_enabled else "Disabled"}\nContinue?') != QMessageBox.Yes:
                 return
-        self.worker = Worker(request, action)
+        if action in ('deploy', 'rollback'):
+            from .platforms import steam_processes
+            if steam_processes():
+                if QMessageBox.question(self, 'Close Steam', 'Steam must close before changing game files. Close Steam now?') != QMessageBox.Yes:
+                    return
+                close_steam = True
+        self.worker = Worker(request, action, self.verified_cache, close_steam)
         self.worker.progress.connect(self.show_progress)
         self.worker.prompt.connect(self.prompt)
         self.worker.succeeded.connect(self.succeeded)
@@ -205,7 +228,10 @@ class Window(QWidget, FolonPages):
     def succeeded(self, result):
         action = self.worker.action
         if action == 'preflight':
-            self.pages.setCurrentIndex(1)
+            if self.args.content_root:
+                self._next_action = 'verify-download'
+            else:
+                self.pages.setCurrentIndex(1)
         elif action == 'setup-steamcmd':
             self._next_action = 'download'
         elif action in ('download', 'verify-download'):
@@ -220,6 +246,8 @@ class Window(QWidget, FolonPages):
         self.output.show()
         self.PasswordEntry.clear()
         self.output.appendPlainText(result['error_code'] + ': ' + result['message'])
+        if result.get('retry_required'):
+            self.output.appendPlainText('No rollback backup was requested. Retry the downgrade, or restore the game using Steam.')
         if result.get('rollback_required'):
             self.output.appendPlainText('Deployment may have changed files. Use Restore backup before trying again.')
 

@@ -47,3 +47,30 @@ the real-device acceptance matrix. Do not redistribute game files in this repo.
 
 [DepotDownloader parameters](https://github.com/SteamRE/DepotDownloader#parameters).
 The importer format reference and source hashes are in [source-audit.md](source-audit.md).
+
+## Existing SteamCMD download: use the local manifest cache
+
+SteamCMD may leave the exact unencrypted manifests in the Steam client's
+`depotcache` directory, even when its executable and downloads are on another
+drive. The live Linux test found all 14 there, so no additional account login
+or DepotDownloader invocation was needed.
+
+```sh
+python -m folon_downgrader.inventory \
+  --manifest manifests/fo4-1.10.163.0-en.json \
+  --content-root /path/to/app_377160 \
+  --steam-cache ~/.local/share/Steam/depotcache \
+  --output /path/to/candidate.json
+```
+
+The cache reader checks complete framing, exact depot/manifest IDs, unencrypted
+filenames and the available payload CRC (which covers the length plus payload).
+Every regular file is then checked against its Steam size and SHA-1 while SHA-256
+is computed. Cached signature sections may be empty: this is not independent
+signature verification. Source provenance and cache hashes remain recorded.
+
+`fo4-1.10.163.0-en.candidate.json` records the live test's verified 117 file records,
+explicit meshes owner, and exact cleanup paths. It remains disabled for general
+deployment. The `exclude` list prevents selected official CC assets from being
+installed, while still requiring their downloaded bytes to verify. `remove` names
+the exact destination files to back up/remove; no runtime wildcard is used.

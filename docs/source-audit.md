@@ -86,3 +86,30 @@ AppImage type2 runtime `continuous/runtime-x86_64` was downloaded separately and
 verified against GitHub's asset digest:
 `617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46`.
 The packager receives it via `--runtime-file`, avoiding implicit network downloads.
+
+## Offline Steam manifest decoder references
+
+- [SteamRE/SteamKit / SteamKit2/SteamKit2/Types/DepotManifest.cs](https://github.com/SteamRE/SteamKit/blob/24131c045655ddaa1e0e60880b2b1af28f69e89c/SteamKit2/SteamKit2/Types/DepotManifest.cs): commit `24131c045655ddaa1e0e60880b2b1af28f69e89c`, SHA-256 `0e45d6fcd5cbf5d8dbc8546542b1f1e9123b3ce4b6c227f731b82d743216cb21`.
+- [SteamDatabase/Protobufs / steam/content_manifest.proto](https://github.com/SteamDatabase/Protobufs/blob/1ad9f323b1ace1b76e5052fef141edccd11acb95/steam/content_manifest.proto): commit `1ad9f323b1ace1b76e5052fef141edccd11acb95`, SHA-256 `104b66386fd09b195bda60998aaa3568c668c52576143f50d8bae197c4955b04`.
+
+The decoder independently reads the protobuf framing/fields documented by these
+references. It accepts only unencrypted cache entries with exact pinned IDs,
+checks the available CRC over payload length plus payload, and does not claim
+Steam signature verification. No SteamKit implementation is bundled.
+The local candidate records all 14 input cache hashes and the baseline official
+content manifest used to review the exact CC cleanup paths.
+
+## Versioned CI build tools (2026-11-01 follow-up)
+
+The moving `continuous` appimagetool asset changed and correctly failed the old
+hash check. Builds now use official versioned assets, with digests checked against
+GitHub release metadata:
+
+- AppImage/appimagetool **1.9.1**, `appimagetool-x86_64.AppImage`:
+  `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0`.
+- AppImage/type2-runtime **20251108**, `runtime-x86_64`:
+  `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d`.
+
+CI action references are pinned to the commits recorded in the preceding hosted
+run. Linux builds PyInstaller once, then packages that output. Both platforms run
+CLI help and an offscreen packaged GUI startup check from an unrelated directory.

@@ -1,5 +1,6 @@
 """Copy, verify, journal, replace. Backups survive success, failure and process death."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -15,10 +16,16 @@ def copy_replace(source, target, spec):
     fd, tmp = tempfile.mkstemp(prefix='.folon-copy-', dir=target.parent)
     try:
         with os.fdopen(fd, 'wb') as out, source.open('rb') as inp:
-            shutil.copyfileobj(inp, out, 1024 * 1024)
+            hasher = hashlib.sha256()
+            size = 0
+            while chunk := inp.read(1024 * 1024):
+                out.write(chunk)
+                hasher.update(chunk)
+                size += len(chunk)
+            if size != spec['size'] or hasher.hexdigest() != spec['sha256']:
+                fail('HASH_MISMATCH', 'A source file changed or does not match the trusted inventory.')
             out.flush()
             os.fsync(out.fileno())
-        verify_file(Path(tmp), spec)
         os.replace(tmp, target)
         sync_dir(target.parent)
     finally:
@@ -60,7 +67,7 @@ class Transaction:
             fail('JOURNAL_INVALID', 'Cannot read a valid rollback journal for this game root.')
         return self.journal
 
-    def prepare(self, files, remove, manifest_hash, cancel=lambda: None):
+    def prepare(self, files, remove, manifest_hash, cancel=lambda: None, backup_enabled=True):
         if self.path.exists():
             old = self.load()
             fail('TRANSACTION_EXISTS', f"Existing transaction is {old['status']}. Retain it for rollback; select a fresh backup directory for a new deployment.")
@@ -75,21 +82,22 @@ class Transaction:
                     fail('PATH_CONFLICT', 'A destination parent is not a directory.')
             if target.exists() and not target.is_file():
                 fail('PATH_CONFLICT', 'A destination is not a regular file.')
-            old = {'size': target.stat().st_size, 'sha256': digest(target)} if target.is_file() else None
+            old = {'size': target.stat().st_size, 'sha256': digest(target)} if backup_enabled and target.is_file() else None
             entries.append({'name': name, 'action': 'install' if name in files else 'remove',
                             'old': old, 'new': files[name][1] if name in files else None,
-                            'state': 'planned'})
+                            'existed': target.exists(), 'state': 'planned'})
         backup_bytes = sum(e['old']['size'] for e in entries if e['old'])
         new_bytes = sum(e['new']['size'] for e in entries if e['new'])
+        growth = sum(max(0, files[e['name']][1]['size'] - (inside(self.game, e['name']).stat().st_size if e['existed'] else 0)) for e in entries if e['new'])
         largest = max((e['new']['size'] for e in entries if e['new']), default=0)
         self.backup.mkdir(parents=True, exist_ok=True)
         same_device = self.game.stat().st_dev == self.backup.stat().st_dev
-        if shutil.disk_usage(self.backup).free < backup_bytes + (new_bytes + largest if same_device else 0):
+        if shutil.disk_usage(self.backup).free < backup_bytes + (growth + largest if same_device else 0):
             fail('INSUFFICIENT_SPACE', 'Insufficient free space for backups and destination copies.')
-        if shutil.disk_usage(self.game).free < new_bytes + largest + (backup_bytes if same_device else 0):
+        if shutil.disk_usage(self.game).free < growth + largest + (backup_bytes if same_device else 0):
             fail('INSUFFICIENT_SPACE', 'Insufficient free space for deployment and temporary copies.')
         self.journal = {'schema': 1, 'game': str(self.game), 'manifest': manifest_hash,
-                        'status': 'preparing', 'entries': entries}
+                        'status': 'preparing', 'backup_enabled': backup_enabled, 'entries': entries}
         self.save()
         for entry in entries:
             cancel()
@@ -114,7 +122,7 @@ class Transaction:
             target = inside(self.game, entry['name'])
             if entry['old']:
                 verify_file(target, entry['old'])
-            elif target.exists():
+            elif target.exists() and not entry.get('existed', False):
                 fail('PATH_CONFLICT', 'A destination changed after preflight.')
             # Persist intent BEFORE replace/unlink, so crash recovery knows this entry may have changed.
             entry['state'] = 'writing'
@@ -137,6 +145,8 @@ class Transaction:
 
     def rollback(self):
         journal = self.load()
+        if not journal.get('backup_enabled', True):
+            fail('BACKUP_DISABLED', 'No rollback backup was requested. Retry the downgrade or restore the game using Steam.')
         if journal['status'] == 'rolled_back':
             return
         # Validate every needed backup and destination before changing any file.

@@ -1,6 +1,7 @@
 import importlib.util
 import os
 import unittest
+from types import SimpleNamespace
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
@@ -17,4 +18,22 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(window.PasswordEntry.echoMode(), window.PasswordEntry.Password)
         window.failed({'error_code': 'DEPOT_INCOMPLETE', 'message': 'Missing file', 'rollback_required': False})
         self.assertEqual(window.pages.currentIndex(), 0)
+        window.close()
+
+    def test_existing_downloads_are_verified_before_deploy_page(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args(['--content-root', '/existing/depot-tree']))
+        window.worker = SimpleNamespace(action='preflight')
+        window.succeeded({'inventory_complete': True})
+        self.assertEqual(window._next_action, 'verify-download')
+        self.assertEqual(window.pages.currentIndex(), 0)
+        window.worker.action = 'verify-download'
+        window.failed({'error_code': 'DEPOT_INCOMPLETE', 'message': 'Missing file'})
+        self.assertEqual(window.pages.currentIndex(), 0)
+        window.succeeded({})
+        self.assertEqual(window.pages.currentIndex(), 2)
+        window.worker = None
         window.close()

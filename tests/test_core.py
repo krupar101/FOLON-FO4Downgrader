@@ -43,12 +43,13 @@ class Fixture(unittest.TestCase):
                 'files': [{'path': name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}]})
         self.write_manifest()
         self.request = Request(self.game, self.root / 'stage', self.root / 'backend', self.root / 'backup',
-                               self.manifest_path, self.content)
+                               self.manifest_path, self.content, backup_enabled=True)
         self.events = []
         self.engine = Engine(self.request, self.events.append)
         self.addCleanup(patch.stopall)
         patch('folon_downgrader.engine.data_root', return_value=self.root / 'appdata').start()
         patch('folon_downgrader.engine.check_not_running').start()
+        patch('folon_downgrader.engine.steam_processes', return_value=[]).start()
         patch('folon_downgrader.engine.executable_version', return_value='1.10.984.0').start()
         patch('folon_downgrader.manifest.executable_version', return_value='1.10.163.0').start()
 
@@ -113,7 +114,7 @@ class Fixture(unittest.TestCase):
         count = 0
         def broken(source, target, spec):
             nonlocal count
-            if target.is_relative_to(self.game):
+            if target.resolve().is_relative_to(self.game.resolve()):
                 count += 1
                 if count == 2:
                     raise OSError(28, 'disk full')
@@ -213,7 +214,7 @@ class Fixture(unittest.TestCase):
         steam = self.root / 'Steam'
         (steam / 'steamapps').mkdir(parents=True)
         escaped = str(self.root / 'library').replace('\\', '\\\\')
-        (steam / 'steamapps/libraryfolders.vdf').write_text(f'"libraryfolders" {{ "1" {{ "path" "{escaped}" }} }}')
+        (steam / 'steamapps/libraryfolders.vdf').write_text(f'"libraryfolders" {{ "1" {{ "path" "{escaped}" }} }}', encoding="utf-8")
         self.assertEqual(discover([steam]), [self.game])
 
     def test_overlapping_depot_files_require_owner(self):
@@ -323,6 +324,7 @@ class GuiBackendTests(unittest.TestCase):
             script = root / 'fake'
             script.write_text('#!' + sys.executable + '\n' + '''
 import sys
+print('ILocalize::AddFile() failed to load optional translation resource.', flush=True)
 print('Steam>', flush=True)
 assert input() == 'login example_user'
 print('password:', flush=True)
@@ -372,3 +374,141 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(parsed['Fallout4.exe']['size'], 8)
         with self.assertRaises(DowngradeError):
             steam_text(path, 1, '101')
+
+
+class SteamStartupRegressionTests(unittest.TestCase):
+    def test_optional_localization_warning_is_not_download_failure(self):
+        warning = 'ILocalize::AddFile() failed to load file "public/steambootstrapper_polish.txt".\nSteam>'
+        self.assertIsNone(classify(0, warning))
+        self.assertEqual(classify(1, warning), 'DEPOT_DOWNLOAD_FAILED')
+
+    def test_failure_word_in_account_name_is_not_failure(self):
+        self.assertIsNone(classify(0, 'Steam>login failed_user\npassword:'))
+
+    def test_guard_chatter_does_not_hide_depot_failure(self):
+        self.assertEqual(classify(0, 'Steam Guard approved\nERROR! Download failed'), 'DEPOT_DOWNLOAD_FAILED')
+
+    def test_phase_is_reported_without_raw_backend_output(self):
+        from folon_downgrader.steamcmd import session_failure
+        code, message = session_failure('DEPOT_DOWNLOAD_FAILED', 'startup')
+        self.assertEqual(code, 'STEAMCMD_BOOTSTRAP_FAILED')
+        self.assertIn('SteamCMD startup', message)
+        code, message = session_failure('DEPOT_DOWNLOAD_FAILED', 'download', 377161)
+        self.assertIn('377161', message)
+
+
+class ExcludedContentTests(unittest.TestCase):
+    setUp = Fixture.setUp
+    write_manifest = Fixture.write_manifest
+    snapshot = Fixture.snapshot
+
+    def add_cc(self):
+        name = 'Data/cc-official.ba2'
+        source = self.content / 'depot_2' / name
+        source.write_bytes(b'official cc')
+        self.manifest_data['depots'][1]['files'].append({'path': name, 'size': 11, 'sha256': hashlib.sha256(b'official cc').hexdigest()})
+        self.manifest_data['exclude'] = [name]
+        self.manifest_data['remove'] = [name]
+        target = self.game / name
+        target.parent.mkdir(exist_ok=True)
+        target.write_bytes(b'original cc')
+        self.write_manifest()
+        return source, target
+
+    def test_excluded_verified_content_is_removed_and_restorable(self):
+        _, target = self.add_cc()
+        before = self.snapshot()
+        result = self.engine.run('deploy', True)
+        self.assertTrue(result['ok'], result)
+        self.assertFalse(target.exists())
+        self.assertTrue(self.engine.run('rollback', True)['ok'])
+        self.assertEqual(before, self.snapshot())
+
+    def test_excluded_downloads_still_require_integrity(self):
+        source, _ = self.add_cc()
+        source.write_bytes(b'bad')
+        before = self.snapshot()
+        self.assertEqual(self.engine.run('deploy', True)['error_code'], 'HASH_MISMATCH')
+        self.assertEqual(before, self.snapshot())
+
+    def test_cannot_exclude_executable(self):
+        self.manifest_data['exclude'] = ['Fallout4.exe']
+        self.write_manifest()
+        self.assertEqual(self.engine.run('deploy', True)['error_code'], 'MANIFEST_INVALID')
+
+
+class FastDeploymentTests(Fixture):
+    def no_backup_engine(self):
+        from dataclasses import replace
+        return Engine(replace(self.request, backup_enabled=False))
+
+    def test_default_request_has_no_backup(self):
+        self.assertFalse(Request(self.game, self.root/'s', self.root/'b', self.root/'r', self.manifest_path).backup_enabled)
+
+    def test_no_backup_installs_without_original_or_staging_copy(self):
+        engine = self.no_backup_engine()
+        self.assertTrue(engine.run('deploy', True)['ok'])
+        self.assertFalse((self.root/'backup/original').exists())
+        self.assertFalse((self.root/'stage').exists())
+        self.assertEqual(engine.run('rollback', True)['error_code'], 'BACKUP_DISABLED')
+
+    def test_failed_no_backup_install_can_retry(self):
+        import folon_downgrader.deployment as deployment
+        original = deployment.copy_replace
+        def broken(source, target, spec):
+            if target.name == 'Fallout4.exe':
+                raise OSError(28, 'full')
+            return original(source, target, spec)
+        engine = self.no_backup_engine()
+        with patch.object(deployment, 'copy_replace', side_effect=broken):
+            result = engine.run('deploy', True)
+        self.assertTrue(result['retry_required'])
+        self.assertFalse(result['rollback_required'])
+        self.assertTrue(self.no_backup_engine().run('deploy', True)['ok'])
+
+    def test_download_verification_reuses_only_unchanged_files(self):
+        import folon_downgrader.manifest as module
+        engine = self.no_backup_engine()
+        with patch.object(module, 'verify_file', wraps=module.verify_file) as verify:
+            self.assertTrue(engine.run('verify-download')['ok'])
+            self.assertEqual(verify.call_count, 2)
+            self.assertTrue(engine.run('verify-download')['ok'])
+            self.assertEqual(verify.call_count, 2)
+            (self.content/'depot_1/Fallout4.exe').write_bytes(b'bad exe')
+            self.assertEqual(engine.run('deploy', True)['error_code'], 'HASH_MISMATCH')
+        self.assertEqual((self.game/'Fallout4.exe').read_bytes(), b'old exe')
+
+    def test_source_corruption_never_replaces_destination(self):
+        from folon_downgrader.deployment import copy_replace
+        source = self.content/'depot_1/Fallout4.exe'
+        source.write_bytes(b'bad exe')
+        with self.assertRaises(DowngradeError):
+            copy_replace(source, self.game/'Fallout4.exe', self.manifest_data['depots'][0]['files'][0])
+        self.assertEqual((self.game/'Fallout4.exe').read_bytes(), b'old exe')
+
+    def test_steam_blocks_deployment_before_changes(self):
+        with patch('folon_downgrader.engine.steam_processes', return_value=[object()]):
+            self.assertEqual(self.no_backup_engine().run('deploy', True)['error_code'], 'STEAM_RUNNING')
+        self.assertEqual((self.game/'Fallout4.exe').read_bytes(), b'old exe')
+
+
+class SteamShutdownTests(unittest.TestCase):
+    def test_normal_shutdown_waits_for_exit(self):
+        from folon_downgrader.platforms import shutdown_steam
+        from unittest.mock import Mock
+        process = Mock()
+        process.exe.return_value = '/steam/steam'
+        with patch('folon_downgrader.platforms.steam_processes', side_effect=[[process], []]), patch('subprocess.Popen') as spawn:
+            shutdown_steam()
+            self.assertEqual(spawn.call_args.args[0], ['/steam/steam', '-shutdown'])
+
+    def test_shutdown_timeout_does_not_force_kill(self):
+        from folon_downgrader.platforms import shutdown_steam
+        from unittest.mock import Mock
+        process = Mock()
+        process.exe.return_value = '/steam/steam'
+        with patch('folon_downgrader.platforms.steam_processes', return_value=[process]), patch('subprocess.Popen'), patch('time.monotonic', side_effect=[0, 31]):
+            with self.assertRaises(DowngradeError) as error:
+                shutdown_steam()
+        self.assertEqual(error.exception.code, 'STEAM_RUNNING')
+        process.kill.assert_not_called()

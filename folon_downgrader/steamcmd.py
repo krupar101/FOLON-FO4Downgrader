@@ -131,18 +131,43 @@ class SteamCmdProvider:
 
 
 def classify(returncode, output):
-    """Only return an error classification, never echo untrusted backend text."""
+    """Classify explicit failure records, not isolated words in startup chatter."""
+    import re
     lower = output.lower()
     for needles, code in [
-        (('certificate', 'ssl error'), 'TLS_VERIFY_FAILED'),
-        (('rate limit',), 'RATE_LIMITED'),
-        (('invalid password', 'invalid login'), 'AUTH_DENIED'),
-        (('steam guard', 'two-factor', 'authenticator'), 'AUTH_PENDING'),
-        (('error!', 'failed', 'no subscription'), 'DEPOT_DOWNLOAD_FAILED'),
+        (('certificate_verify_failed', 'certificate verify failed', 'ssl error', 'ssl connect error'), 'TLS_VERIFY_FAILED'),
+        (('rate limit exceeded', 'rate limited'), 'RATE_LIMITED'),
+        (('invalid password', 'invalid login', 'invalid auth code', 'invalid login auth code'), 'AUTH_DENIED'),
+        (('no subscription', 'missing license', 'access denied'), 'DEPOT_ACCESS_DENIED'),
     ]:
         if any(n in lower for n in needles):
             return code
-    return 'DEPOT_DOWNLOAD_FAILED' if returncode else None
+    # ILocalize::AddFile() failed to load optional translation resources is a
+    # normal first-bootstrap warning. A bare "failed" also matches account names.
+    if (re.search(r'(?:^|[\r\n])\s*(?:error!|failed\b)', lower)
+            or any(n in lower for n in ('error! ', 'depot download failed', 'failed to download depot'))):
+        return 'DEPOT_DOWNLOAD_FAILED'
+    if returncode:
+        return 'DEPOT_DOWNLOAD_FAILED'
+    if any(n in lower for n in ('steam guard', 'two-factor', 'authenticator')):
+        return 'AUTH_PENDING'
+    return None
+
+
+def session_failure(code, phase, depot_id=None):
+    """Fixed diagnostic text: never include raw Steam output or credentials."""
+    stage = {'startup': 'SteamCMD startup', 'login': 'Steam login',
+             'download': f'download of depot {depot_id}', 'quit': 'SteamCMD shutdown'}[phase]
+    messages = {
+        'TLS_VERIFY_FAILED': 'SteamCMD reported a certificate or TLS connection error. Check the system clock, certificates and network.',
+        'RATE_LIMITED': 'Steam reported a rate limit. Wait before retrying login.',
+        'AUTH_DENIED': 'Steam rejected the login or authentication code. Check the account details and retry.',
+        'DEPOT_ACCESS_DENIED': 'Steam denied access to the requested content. Check Fallout 4 and DLC ownership on this account.',
+        'DEPOT_DOWNLOAD_FAILED': 'SteamCMD reported an explicit command failure.',
+    }
+    if code == 'DEPOT_DOWNLOAD_FAILED' and phase == 'startup':
+        code = 'STEAMCMD_BOOTSTRAP_FAILED'
+    return code, f"During {stage}: {messages.get(code, 'SteamCMD could not finish starting. Retry setup.')} Game files were not modified."
 
 
 def stop_process(process):
@@ -243,6 +268,7 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
     phase = 'startup'
     depot_index = 0
     logged_in = False
+    mobile_approval_notified = False
     downloaded = False
     started = time.monotonic()
     phase_started = started
@@ -262,8 +288,10 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
             buffer = (buffer + re.sub(r'\x1b\[[0-9;]*m', '', raw.decode('utf-8', errors='replace')))[-16384:]
             lower = buffer.lower()
             code = classify(0, buffer)
-            if code in ('AUTH_DENIED', 'RATE_LIMITED', 'TLS_VERIFY_FAILED', 'DEPOT_DOWNLOAD_FAILED'):
-                fail(code, 'SteamCMD could not complete the operation. No game files were changed; downloaded files were retained.')
+            if code and code != 'AUTH_PENDING':
+                depot_id = manifest.depots[depot_index]['id'] if depot_index < len(manifest.depots) else None
+                error_code, message = session_failure(code, phase, depot_id)
+                fail(error_code, message)
             if phase == 'startup' and 'Steam>' in buffer:
                 send('login ' + username)
                 username = ''
@@ -286,8 +314,9 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                     buffer = ''
                     phase_started = time.monotonic()
                     continue
-                if 'mobile' in lower and ('confirm' in lower or 'approval' in lower):
+                if not mobile_approval_notified and 'mobile' in lower and ('confirm' in lower or 'approval' in lower):
                     emit({'stage': 'authenticate', 'message': 'Approve the Steam login in your mobile app.'})
+                    mobile_approval_notified = True
                 if re.search(r'Waiting for user info.*?OK', buffer, re.DOTALL | re.IGNORECASE):
                     logged_in = True
                 if 'Steam>' in buffer:

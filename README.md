@@ -48,19 +48,26 @@ python FOLON-Downgrader.py --game-path "/library/steamapps/common/Fallout 4" --v
 select separate writable locations, including secondary drives. Defaults are in
 `%LOCALAPPDATA%/FOLON-Downgrader` or `$XDG_DATA_HOME/folon-downgrader`
 (`~/.local/share/folon-downgrader` if unset). The game stays in its Steam library.
-SteamCMD initially downloads into its own content tree; verified files are copied
-to durable staging before deployment. Allow space for downloads, staging and backup.
+SteamCMD downloads into its own content tree. Deployment uses those files directly,
+without a second staging copy. Downloads are hash-verified once per app session;
+changed files or a restarted app require fresh verification. Copying checks hashes
+in a bounded 1 MiB buffer, and the installed files are verified afterward. Allow
+space for downloads, any installation growth and one temporary replacement file.
 
 `--deploy --yes` explicitly confirms modifying the supplied `--game-path`.
-`--rollback --yes` restores the journaled backup. Never delete the rollback folder
-until you no longer need it. If interrupted during deployment, roll back first,
-then choose a fresh backup root for a new transaction. `--resume`/`--repair` reuse
-verified cached bytes and check completed installations; they do not blindly
-continue an interrupted deployment. CLI download uses interactive SteamCMD in the
-terminal; normal GUI use does not need a terminal.
+Backups are **off by default**. Select “Keep a backup for restoration” in the GUI
+or pass `--backup` to preserve affected original files, requiring additional disk
+space. `--rollback --yes` restores that journaled backup. Retain it until no longer
+needed. Interrupted deployments with backups require rollback first; without
+backups, retry the downgrade or restore the game through Steam. The small
+transaction journal is retained even when file backups are disabled.
+
+The GUI asks before requesting Steam's normal shutdown and waits for it to exit.
+It never force-kills Steam. CLI deployment requires Steam to be closed manually.
+CLI download uses interactive SteamCMD; normal GUI use does not need a terminal.
 
 There is no wildcard CC/HD deletion and no automatic Steam update blocking.
-Only exact removals in a reviewed manifest are applied, with backups. Saves,
+Only exact removals in a reviewed manifest are applied; backups follow your selected option. Saves,
 Proton configuration, launchers and unrelated mods are outside the engine's scope.
 
 ## Develop

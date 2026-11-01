@@ -55,11 +55,15 @@ def steam_text(path, depot_id, manifest_id):
     return files
 
 
-def candidate(manifest, content, exports=None):
+def candidate(manifest, content, exports=None, cache=None, progress=lambda message: None):
+    if exports and cache:
+        fail('MANIFEST_INVALID', 'Select either text exports or a Steam manifest cache.')
+    if cache:
+        cache = Path(cache).resolve()
     result = copy.deepcopy(manifest.data)
     result['inventory_complete'] = False
     result['inventory_evidence'] = {'status': 'candidate_requires_review', 'base_manifest_sha256': manifest.sha256,
-                                    'steam_exports': []}
+                                    'steam_exports': [], 'steam_cache': []}
     for depot in result['depots']:
         root = inside(content, f"depot_{depot['id']}")
         if not root.is_dir():
@@ -70,6 +74,11 @@ def candidate(manifest, content, exports=None):
             expected = steam_text(export, depot['id'], depot['manifest'])
             result['inventory_evidence']['steam_exports'].append({'depot': depot['id'], 'sha256': digest(export)})
         names = []
+        if cache:
+            from .steam_manifest import cached_manifest
+            cached = inside(cache, f"{depot['id']}_{depot['manifest']}.manifest")
+            expected, evidence = cached_manifest(cached, depot['id'], depot['manifest'])
+            result['inventory_evidence']['steam_cache'].append(evidence)
         if expected:
             names = list(expected)
         else:
@@ -85,13 +94,21 @@ def candidate(manifest, content, exports=None):
             path = inside(root, name)
             if not path.is_file():
                 fail('DEPOT_INCOMPLETE', 'A Steam manifest file is missing from the download.')
-            size = path.stat().st_size
-            if expected:
-                with path.open('rb') as stream:
-                    sha1 = hashlib.file_digest(stream, 'sha1').hexdigest()
-                if size != expected[name]['size'] or sha1 != expected[name]['sha1']:
-                    fail('HASH_MISMATCH', 'Downloaded bytes do not match the Steam manifest.')
-            depot['files'].append({'path': name, 'size': size, 'sha256': digest(path)})
+            before = path.stat()
+            sha1 = hashlib.sha1()
+            sha256 = hashlib.sha256()
+            with path.open('rb') as stream:
+                while block := stream.read(4 * 1024 * 1024):
+                    sha1.update(block)
+                    sha256.update(block)
+            after = path.stat()
+            if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
+                fail('DEPOT_INCOMPLETE', 'A downloaded file changed while it was being verified.')
+            if expected and (before.st_size != expected[name]['size'] or sha1.hexdigest() != expected[name]['sha1']):
+                fail('HASH_MISMATCH', 'Downloaded bytes do not match the Steam manifest.')
+            depot['files'].append({'path': name, 'size': before.st_size, 'sha256': sha256.hexdigest()})
+        progress(f"Verified depot {depot['id']}: {len(depot['files'])} files")
+
     executables = [inside(content, f"depot_{d['id']}/Fallout4.exe") for d in result['depots']
                    if any(f['path'] == 'Fallout4.exe' for f in d['files'])]
     if len(executables) != 1 or executable_version(executables[0]) != result['target_exe_version']:
@@ -103,11 +120,13 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--manifest', type=Path, required=True)
     p.add_argument('--content-root', type=Path, required=True)
-    p.add_argument('--steam-manifests', type=Path, help='Directory of authenticated DepotDownloader -manifest-only exports')
+    sources = p.add_mutually_exclusive_group()
+    sources.add_argument('--steam-manifests', type=Path, help='Directory of authenticated DepotDownloader -manifest-only exports')
+    sources.add_argument('--steam-cache', type=Path, help='Steam depotcache directory containing the pinned unencrypted manifests')
     p.add_argument('--output', type=Path, required=True)
     args = p.parse_args(argv)
     try:
-        result = candidate(Manifest(args.manifest), args.content_root.absolute(), args.steam_manifests)
+        result = candidate(Manifest(args.manifest), args.content_root.absolute(), args.steam_manifests, args.steam_cache, lambda message: print(message, flush=True))
         with args.output.open('x', encoding='utf-8') as stream:
             json.dump(result, stream, indent=2)
             stream.write('\n')

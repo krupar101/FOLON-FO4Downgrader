@@ -143,13 +143,11 @@ class FolonPages:
         layout = QFormLayout()
         layout.addRow(
             QLabel(
-                "<p>The following button can take quite a while, please <b>be patient</b>.</p>"
+                "<p>Downgrading can take several minutes. Progress will appear below.</p>"
             )
         )
 
-        self.InstallButton = QPushButton(
-            text="Downgrade Fallout 4 \n(This will take a long time)"
-        )
+        self.InstallButton = QPushButton('Downgrade Fallout 4')
         self.InstallButton.setObjectName("InstallButton")
         self.InstallButton.setFont(QFont("Overseer", 25))
         self.InstallButton.pressed.connect(self.OpenDepotsDialog)
