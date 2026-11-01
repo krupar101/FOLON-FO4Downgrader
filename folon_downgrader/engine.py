@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import hashlib
-import json
 from contextlib import ExitStack
 import os
 from pathlib import Path
@@ -9,7 +8,7 @@ import threading
 from .deployment import Transaction
 from .errors import DowngradeError, Stage, fail
 from .files import Lock, inside
-from .manifest import Manifest, executable_version, verify_depots, verify_target, verify_file
+from .manifest import Manifest, executable_version, verify_depots, verify_target
 from .platforms import check_not_running, data_root, host, steam_processes
 from .steamcmd import SteamCmdProvider, interactive_download, gui_download
 
@@ -19,15 +18,14 @@ class Request:
     game: Path
     staging: Path
     steamcmd: Path
-    backup: Path
+    state: Path
     manifest: Path
     content: Path | None = None
-    backup_enabled: bool = False
 
     def __post_init__(self):
         # Resolve user-selected directory aliases once at the trust boundary.
         # Paths inside these canonical roots still reject links/junctions.
-        for field in ('game', 'staging', 'steamcmd', 'backup', 'content'):
+        for field in ('game', 'staging', 'steamcmd', 'state', 'content'):
             path = getattr(self, field)
             if path is not None:
                 object.__setattr__(self, field, Path(path).resolve())
@@ -45,7 +43,7 @@ class Engine:
 
     def check_cancel(self):
         if self.cancelled.is_set():
-            fail('CANCELLED', 'Operation cancelled. Staging and backups were retained.')
+            fail('CANCELLED', 'Operation cancelled. Downloaded files were retained.')
 
     def event(self, stage, **fields):
         self.stage = stage
@@ -64,25 +62,28 @@ class Engine:
         app = dict(vdf_pairs(appmanifest.read_text(encoding='utf-8', errors='replace')))
         if app.get('appid') != '377160' or app.get('installdir') != game.name:
             fail('GAME_NOT_FOUND', 'The Steam app manifest does not identify this game directory.')
-        managed = [game, r.staging.absolute(), r.steamcmd.absolute(), r.backup.absolute()]
+        managed = [game, r.staging.absolute(), r.steamcmd.absolute(), r.state.absolute()]
         for root in managed:
             inside(root, '.boundary-check')
         for i, a in enumerate(managed):
             for b in managed[i + 1:]:
                 if a.resolve().is_relative_to(b.resolve()) or b.resolve().is_relative_to(a.resolve()):
-                    fail('PATH_CONFLICT', 'Game, staging, SteamCMD and backup roots must be separate, non-nested directories.')
+                    fail('PATH_CONFLICT', 'Game, staging, SteamCMD and state roots must be separate, non-nested directories.')
         if r.content:
             content = r.content.resolve()
             if content.is_relative_to(game) or game.is_relative_to(content):
                 fail('PATH_CONFLICT', 'Download content cannot overlap the game directory.')
         manifest = Manifest(r.manifest)
+        manifest.require_inventory()
         check_not_running()
         report = {'platform': host(), 'game': str(game), 'staging': str(r.staging.absolute()),
-                  'steamcmd': str(r.steamcmd.absolute()), 'backup': str(r.backup.absolute()),
+                  'steamcmd': str(r.steamcmd.absolute()), 'state': str(r.state.absolute()),
                   'current_build': executable_version(game / 'Fallout4.exe'),
                   'target_build': manifest.data['target_exe_version'],
                   'manifest_sha256': manifest.sha256, 'inventory_complete': manifest.data.get('inventory_complete', False),
-                  'writable': os.access(game, os.W_OK), 'game_modified': False}
+                  'writable': os.access(game, os.W_OK), 'game_modified': False,
+                  'downloads_available': any(p.is_dir() for p in ([r.content] if r.content else
+                      [r.staging / 'content', *SteamCmdProvider(r.steamcmd).candidate_roots()]))}
         self.event(Stage.PREFLIGHT, **report)
         return manifest, report
 
@@ -116,24 +117,12 @@ class Engine:
         try:
             with ExitStack() as locks:
                 locks.enter_context(Lock(self.lock_path()))
-                # Also serialize shared caches/backup roots across different game selections.
-                for root in sorted({str(self.request.steamcmd.resolve()), str(self.request.staging.resolve()), str(self.request.backup.resolve())}):
+                # Also serialize shared caches/state roots across different game selections.
+                for root in sorted({str(self.request.steamcmd.resolve()), str(self.request.staging.resolve()), str(self.request.state.resolve())}):
                     key = hashlib.sha256(os.path.normcase(root).encode()).hexdigest()
                     locks.enter_context(Lock(data_root() / 'locks' / ('resource-' + key + '.lock')))
-                if action in ('deploy', 'repair', 'resume', 'rollback') and steam_processes():
+                if action in ('deploy', 'repair', 'resume') and steam_processes():
                     fail('STEAM_RUNNING', 'Close Steam before changing game files.')
-                if action == 'rollback':
-                    if not confirmed:
-                        fail('CONFIRMATION_REQUIRED', 'Rollback modifies game files; confirm the selected target first.')
-                    check_not_running()
-                    tx = Transaction(self.request.game, self.request.backup)
-                    if not tx.load().get('backup_enabled', True):
-                        fail('BACKUP_DISABLED', 'No rollback backup was requested. Retry the downgrade or restore the game using Steam.')
-                    self.game_modified = True
-                    tx.rollback()
-                    result = {'ok': True, 'stage': 'rolled_back', 'game_modified': True}
-                    self.emit(result)
-                    return result
                 manifest, report = self.preflight()
                 self.check_cancel()
                 if action in ('preflight', 'dry-run'):
@@ -162,19 +151,14 @@ class Engine:
                 if not confirmed:
                     fail('CONFIRMATION_REQUIRED', 'Deployment modifies game files; confirm the selected target first.')
                 check_not_running()
-                tx = Transaction(self.request.game, self.request.backup)
+                tx = Transaction(self.request.game, self.request.state)
                 if tx.path.exists():
                     state = tx.load()
                     if state['manifest'] != manifest.sha256:
                         fail('RESUME_MISMATCH', 'The existing transaction belongs to another release manifest.')
-                    if state['status'] == 'complete':
-                        verify_target(self.request.game, manifest)
-                        return {'ok': True, 'stage': 'complete', 'game_modified': False, 'already_installed': True}
-                    if state.get('backup_enabled', True):
-                        fail('ROLLBACK_REQUIRED', 'An existing transaction requires rollback before a new deployment. Backups were retained.')
                     tx.path.unlink()
                 self.event(Stage.PREPARE, files=len(files))
-                tx.prepare(files, manifest.data.get('remove', []), manifest.sha256, self.check_cancel, backup_enabled=self.request.backup_enabled)
+                tx.prepare(files, manifest.data.get('remove', []), manifest.sha256, self.check_cancel)
                 self.check_cancel()
                 self.event(Stage.DEPLOY, files=len(files))
                 self.game_modified = True  # Conservative: mutation may have happened even on a failed write.
@@ -191,17 +175,16 @@ class Engine:
             if isinstance(error, DowngradeError):
                 code, message = error.code, error.message
             elif isinstance(error, (KeyboardInterrupt, InterruptedError)):
-                code, message = 'CANCELLED', 'Operation cancelled. Staging and backups were retained.'
+                code, message = 'CANCELLED', 'Operation cancelled. Downloaded files were retained.'
             elif isinstance(error, PermissionError):
                 code, message = 'PERMISSION_DENIED', 'Access denied. Check selected directory permissions.'
             elif isinstance(error, OSError):
                 code = 'INSUFFICIENT_SPACE' if error.errno == 28 else 'FILESYSTEM_ERROR'
-                message = 'A filesystem operation failed. Staging and backups were retained.'
+                message = 'A filesystem operation failed. Downloaded files were retained.'
             else:
                 code, message = 'INTERNAL_ERROR', 'The operation stopped unexpectedly. No subsequent stage was started.'
             result = {'ok': False, 'stage': self.stage.value, 'error_code': code, 'message': message,
                       'game_modified': self.game_modified,
-                      'rollback_required': self.game_modified and action != 'rollback' and self.request.backup_enabled,
-                      'retry_required': self.game_modified and not self.request.backup_enabled}
+                      'retry_required': self.game_modified}
             self.emit(result)
             return result

@@ -1,3 +1,9 @@
+Current bundled inventory: `manifests/fo4-1.10.163.0-en.json` is reviewed and
+**enabled** for Downgrader 2.0 testing. It contains the verified SteamCMD dataset
+and explicit selection/cleanup rules recorded in `linux-live-test.md`. The
+candidate generator still cannot approve newly generated inventories by itself.
+The earlier acquisition notes below describe how that evidence was obtained.
+
 # Obtain the release inventory
 
 Depot IDs identify versions; they are not a complete list of expected files.

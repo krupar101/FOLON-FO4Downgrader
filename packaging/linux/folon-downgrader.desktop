@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=FOLON Fallout 4 Downgrader
+Name=Downgrader 2.0
 Comment=Downgrade Steam Fallout 4
-Exec=FOLON-Downgrader
+Exec=Downgrader-2.0
 Icon=folon-downgrader
 Terminal=false
 Categories=Game;Utility;

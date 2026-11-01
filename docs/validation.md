@@ -1,8 +1,20 @@
 # Validation and remaining release gates
 
-Status as of 2026-11-01. This is an implementation branch, not a certified release.
-The original user plan remains in `windows-linux-plan.md`; later user decisions
-require the same existing Qt UI on both platforms, with a Linux AppImage.
+Current build: **Downgrader 2.0 / 2.0.0 by FOLON Team**. The verified English
+inventory is bundled and enabled. Backups/restoration have been removed from the
+UI, CLI and engine at the user's request. Existing external test backups remain
+untouched. Replacements are streamed, hash-checked and installed atomically;
+interrupted deployments can retry from retained downloads. No second staging copy
+is made. The GUI detects existing downloads and verifies them before asking for
+another login/download.
+
+Packaged smoke checks now require version 2.0.0 and a complete 90-file deployment
+inventory, in addition to CLI and GUI startup. Game launch on both operating
+systems remains user testing; passing builds alone does not establish that.
+
+The sections below record earlier implementation stages and their limitations;
+mandatory/optional backup and disabled-inventory statements are historical and
+superseded by the current behavior above.
 
 ## Demonstrated locally
 

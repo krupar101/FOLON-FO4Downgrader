@@ -11,18 +11,18 @@ python -m PyInstaller --clean -y FOLON-Downgrader.spec
 appdir="$(mktemp -d "$PWD/build/FOLON.AppDir.XXXXXX")"
 chmod 755 "$appdir"
 mkdir -p "$appdir/usr"
-cp -a dist/FOLON-Downgrader/. "$appdir/usr/"
+cp -a dist/Downgrader-2.0/. "$appdir/usr/"
 cp packaging/linux/folon-downgrader.desktop "$appdir/"
 cp img/FOLON256.png "$appdir/folon-downgrader.png"
 cat > "$appdir/AppRun" <<'RUN'
 #!/usr/bin/env bash
 set -euo pipefail
 appdir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-exec "$appdir/usr/FOLON-Downgrader" "$@"
+exec "$appdir/usr/Downgrader-2.0" "$@"
 RUN
 chmod +x "$appdir/AppRun"
 outputdir="$(mktemp -d "$PWD/dist/.appimage-build.XXXXXX")"
 trap 'rm -rf -- "$outputdir"' EXIT
-ARCH=x86_64 "$APPIMAGETOOL" --appimage-extract-and-run --runtime-file "$APPIMAGE_RUNTIME" "$appdir" "$outputdir/FOLON-Downgrader-x86_64.AppImage"
-mv -f -- "$outputdir/FOLON-Downgrader-x86_64.AppImage" dist/FOLON-Downgrader-x86_64.AppImage
-sha256sum dist/FOLON-Downgrader-x86_64.AppImage > dist/FOLON-Downgrader-x86_64.AppImage.sha256
+ARCH=x86_64 "$APPIMAGETOOL" --appimage-extract-and-run --runtime-file "$APPIMAGE_RUNTIME" "$appdir" "$outputdir/Downgrader-2.0-x86_64.AppImage"
+mv -f -- "$outputdir/Downgrader-2.0-x86_64.AppImage" dist/Downgrader-2.0-x86_64.AppImage
+sha256sum dist/Downgrader-2.0-x86_64.AppImage > dist/Downgrader-2.0-x86_64.AppImage.sha256

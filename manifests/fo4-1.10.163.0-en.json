@@ -4,7 +4,7 @@
   "steam_app_id": 377160,
   "target_exe_version": "1.10.163.0",
   "language": "english",
-  "inventory_complete": false,
+  "inventory_complete": true,
   "source_commit": "c53629d8dd3034776b6f58010e60bfa4cb52abe2",
   "source_path": "Manually.md",
   "source_sha256": "cb086320c2043987ca05ee61cb0aa64ff39b75bfadd02a935785be9cbda368fd",
@@ -12,74 +12,911 @@
     {
       "id": 377161,
       "manifest": "7497069378349273908",
-      "files": []
+      "files": [
+        {
+          "path": "Data/Fallout4 - Meshes.ba2",
+          "size": 1492597526,
+          "sha256": "6466737d72442e95f15772a625a8830673c3e7ffb2740c2729ef7af69b769d6b"
+        },
+        {
+          "path": "Data/Fallout4 - Sounds.ba2",
+          "size": 1579741414,
+          "sha256": "843dd7b72800ce837b27e24080979cd41777dfb8f4c5db56e76fa90932c1c957"
+        },
+        {
+          "path": "Data/Video/AGILITY.bk2",
+          "size": 381902820,
+          "sha256": "f60efd1ab1942970a320bc6a790dc6b3e163270822b16d048a14951543ef8831"
+        },
+        {
+          "path": "Data/Video/CHARISMA.bk2",
+          "size": 400271092,
+          "sha256": "3470e50a3c3f71352cf513989e14b4dba4ffecca8e28ba0a92095d80be937585"
+        },
+        {
+          "path": "Data/Video/ENDURANCE.bk2",
+          "size": 371586760,
+          "sha256": "b6de44f9712e4eab9d47a3673dbccafa3f9be627c1d7f0fdb5723b7af7d35c2d"
+        },
+        {
+          "path": "Data/Video/GameIntro_V3_B.bk2",
+          "size": 27330800,
+          "sha256": "17e58d9520d986d35865f35605420da32e7b53b5e5caa3d1d87e92b1852ed01f"
+        },
+        {
+          "path": "Data/Video/INTELLIGENCE.bk2",
+          "size": 386805116,
+          "sha256": "08dc8045bcd25648b13165c3ff0f25bc5da9f993d9ddafeca295bc40e09caca8"
+        },
+        {
+          "path": "Data/Video/LUCK.bk2",
+          "size": 405196056,
+          "sha256": "405d8781e1b4071b65abc0c86aa45665aa5a8e882e125649ca745ca5c562dbf2"
+        },
+        {
+          "path": "Data/Video/MainMenuLoop.bk2",
+          "size": 322255456,
+          "sha256": "24479943325309cc5ab1fbf2b4270a7ce31be19ff93945569b596db15326d456"
+        },
+        {
+          "path": "Data/Video/PERCEPTION.bk2",
+          "size": 378189860,
+          "sha256": "1a3a2acd4149ef6b95e16bef1fa55bf74307f45839128e4639e5411d6ea0a589"
+        },
+        {
+          "path": "Data/Video/STRENGTH.bk2",
+          "size": 346788624,
+          "sha256": "9036f771ed256ecb5db1944e933abd05ce327c1a06af4ef1232397a834cfc406"
+        },
+        {
+          "path": "installscript.vdf",
+          "size": 606,
+          "sha256": "96d67c2282123c22c984e60dbbd2e8651b0934c0114901e92ed2f4f4ed845054"
+        }
+      ]
     },
     {
       "id": 377163,
       "manifest": "5819088023757897745",
-      "files": []
+      "files": [
+        {
+          "path": "Data/Fallout4 - Animations.ba2",
+          "size": 359787743,
+          "sha256": "3e5c2fa616b6ff0e9592d6d5352900aa1b0f6307a9080fcf09595c0e560501fa"
+        },
+        {
+          "path": "Data/Fallout4 - Geometry.csg",
+          "size": 240043177,
+          "sha256": "73d3a55c88da3caacea007f649ddd4c38e82d7c776ffdc870a8f782ae5192768"
+        },
+        {
+          "path": "Data/Fallout4 - Interface.ba2",
+          "size": 472617933,
+          "sha256": "038d72430c34ee11fa7de9fdc3d1733e8609f663c092143ff88517262749213a"
+        },
+        {
+          "path": "Data/Fallout4 - Materials.ba2",
+          "size": 1770500,
+          "sha256": "397a5ea8fbca8fff34522143581241e993dd8cddd03deea21fff972d756bbc3e"
+        },
+        {
+          "path": "Data/Fallout4 - Meshes.ba2",
+          "size": 1493340537,
+          "sha256": "7cc8765d78564c0faae42d2b47b5b9fed9da38e25b944dd7be164ad6fde46c59"
+        },
+        {
+          "path": "Data/Fallout4 - MeshesExtra.ba2",
+          "size": 1377740102,
+          "sha256": "8142149df77dfe595fd0f02a68152a1c0fb07d6e23eff569824ef26313be0430"
+        },
+        {
+          "path": "Data/Fallout4 - Misc.ba2",
+          "size": 17399872,
+          "sha256": "d6d0163e7c2737edba3516b017a936d410630d35316bdffcf1be751f0d71f5d0"
+        },
+        {
+          "path": "Data/Fallout4 - Nvflex.ba2",
+          "size": 6385127,
+          "sha256": "a8860a48168ccabc38628eb0cd4635bf6d0e4a661a96e7c4e7dc7855124db1cd"
+        },
+        {
+          "path": "Data/Fallout4 - Shaders.ba2",
+          "size": 12795022,
+          "sha256": "68a17ba163aaddbb72dc2202e415e0189b11e4a3ba7848eb528ce4aacf9fb828"
+        },
+        {
+          "path": "Data/Fallout4 - Startup.ba2",
+          "size": 56024998,
+          "sha256": "c7a1f46202ea2cca04ac5a7b8d82792c868493f2a8021693b0f9d75230a35b57"
+        },
+        {
+          "path": "Data/Fallout4 - Textures1.ba2",
+          "size": 2703605715,
+          "sha256": "0ef01dcc41167aeaa7c259c15fd3ee7792f36ab151a4907f220206a7a354c593"
+        },
+        {
+          "path": "Data/Fallout4 - Textures2.ba2",
+          "size": 2410629991,
+          "sha256": "cc76eb25c1b2882b31b941e0e4c7e5a536028a0641fd7b8072dccc3c3d5007e3"
+        },
+        {
+          "path": "Data/Fallout4 - Textures3.ba2",
+          "size": 2101083744,
+          "sha256": "0a4b65b8779842dfda4997ffdc8f05ce7c557871d413db24fa356445ece3bd11"
+        },
+        {
+          "path": "Data/Fallout4 - Textures4.ba2",
+          "size": 1999988681,
+          "sha256": "066c50791a7fac5c64fe109bdf4986ef82d15e6378d658812bec19751fda8c45"
+        },
+        {
+          "path": "Data/Fallout4 - Textures5.ba2",
+          "size": 1963767149,
+          "sha256": "35f8f2ee70bc3d4bf387c94460ec89f9b99fac2c04fddc9dd42645a7eb60a1bc"
+        },
+        {
+          "path": "Data/Fallout4 - Textures6.ba2",
+          "size": 1382855876,
+          "sha256": "3407a0184bc871567dd1aa5b9e120a5b93ad035bda961d7728441cc104e46cf2"
+        },
+        {
+          "path": "Data/Fallout4 - Textures7.ba2",
+          "size": 545959220,
+          "sha256": "06299876a2fdba48c2fc707c34314047fe423163a84cfe1e70986177e6c053b4"
+        },
+        {
+          "path": "Data/Fallout4 - Textures8.ba2",
+          "size": 602176127,
+          "sha256": "bba344ed3da7a4ed9ec8ca8abad77cdfbf9756fc1c2b17f4f6b221368ef37374"
+        },
+        {
+          "path": "Data/Fallout4 - Textures9.ba2",
+          "size": 864524837,
+          "sha256": "1f4dd1e0bc003195c8b4c39819b4657194e3196cdfa758de57bf4d6a0b8e8a4d"
+        },
+        {
+          "path": "Data/Fallout4.cdx",
+          "size": 23360440,
+          "sha256": "2297ca687d182b1576cd7761e22b3f25a1a938ca5141083fd915cf4fbfda4693"
+        },
+        {
+          "path": "Data/Fallout4.esm",
+          "size": 330745373,
+          "sha256": "ae7be31a59052f926474a767d9dbfbcc7f19af4ad2070491f7f40d821b2520eb"
+        },
+        {
+          "path": "Data/ccBGSFO4001-PipBoy(Black) - Main.ba2",
+          "size": 5961,
+          "sha256": "95a527b1ebd15b4b08a667f47cd803b09c128bf61cf3b1ff2f9a47882d7fbf43"
+        },
+        {
+          "path": "Data/ccBGSFO4001-PipBoy(Black) - Textures.ba2",
+          "size": 1480206,
+          "sha256": "3a0904518beda7668304b4c652556522cef266f3074f51ae45106e2b9c12aefb"
+        },
+        {
+          "path": "Data/ccBGSFO4003-PipBoy(Camo01) - Main.ba2",
+          "size": 6409,
+          "sha256": "0fc8856c86f82bf1a7381a33c9e2510c1e51afc26f2930bf51bcd6d6d54ef1a0"
+        },
+        {
+          "path": "Data/ccBGSFO4003-PipBoy(Camo01) - Textures.ba2",
+          "size": 2269631,
+          "sha256": "1965df9f0caaa16b78eb9efdc34fa961deba5da7e021886887ec2e0662bad588"
+        },
+        {
+          "path": "Data/ccBGSFO4004-PipBoy(Camo02) - Main.ba2",
+          "size": 6399,
+          "sha256": "d9bfd9140664f994d8ca818a37c107248dc282731882d3c1129b2e1f5519b3e0"
+        },
+        {
+          "path": "Data/ccBGSFO4004-PipBoy(Camo02) - Textures.ba2",
+          "size": 2095532,
+          "sha256": "bcf1b52617bdf6ca7c5a1fe593b9940d0df62dc3889481af4796501a381e3b35"
+        },
+        {
+          "path": "Data/ccBGSFO4006-PipBoy(Chrome) - Main.ba2",
+          "size": 6108,
+          "sha256": "e826f992ac3d66c89f3745d9bba69067fffe571876f619b2563a1c07b5cb34c2"
+        },
+        {
+          "path": "Data/ccBGSFO4006-PipBoy(Chrome) - Textures.ba2",
+          "size": 3563635,
+          "sha256": "ceb91ff892e715fb19f9c48a89811c0c6c002236ca3c98da7ae6463efe6fc42d"
+        },
+        {
+          "path": "Data/ccBGSFO4016-Prey - Main.ba2",
+          "size": 3756456,
+          "sha256": "3ab83df69dc83719596f364a55f3793f7108ee7c3397270e762d2c8620319d33"
+        },
+        {
+          "path": "Data/ccBGSFO4016-Prey - Textures.ba2",
+          "size": 30169697,
+          "sha256": "c41566fa29681c0b6c8edfb727453502d7af02b860411c36e61468dddc1a2234"
+        },
+        {
+          "path": "Data/ccBGSFO4018-GaussRiflePrototype - Main.ba2",
+          "size": 15960669,
+          "sha256": "4730f94b5c11e7a0c73ec3a42e6008a0e8c1663a7c966e9b4ba6bb17dac808a6"
+        },
+        {
+          "path": "Data/ccBGSFO4018-GaussRiflePrototype - Textures.ba2",
+          "size": 14041713,
+          "sha256": "34ba99c343795ceafa0637ae5e6a873bf91607268f4b780b399ee8c66c5be05a"
+        },
+        {
+          "path": "Data/ccBGSFO4019-ChineseStealthArmor - Main.ba2",
+          "size": 1782122,
+          "sha256": "f6d95a7d3675aa5db59aaf5224bb1323cb93b0d1d442ebb1dc95ec7c91920290"
+        },
+        {
+          "path": "Data/ccBGSFO4019-ChineseStealthArmor - Textures.ba2",
+          "size": 21812857,
+          "sha256": "683ef38c3794a4cd5d583c837546381abfabfe8769d82857e72b32ec7cbb46b8"
+        },
+        {
+          "path": "Data/ccBGSFO4020-PowerArmorSkin(Black) - Main.ba2",
+          "size": 13222,
+          "sha256": "07a5b8552cec194049033f5bf459b5723c9777bf803e255eec4f6c4eb14fbbde"
+        },
+        {
+          "path": "Data/ccBGSFO4020-PowerArmorSkin(Black) - Textures.ba2",
+          "size": 31274358,
+          "sha256": "e25d22bd2886be2bb12141101febb1a6863b7e75b3e6bcb7301c455cf6af52b9"
+        },
+        {
+          "path": "Data/ccBGSFO4038-HorseArmor - Main.ba2",
+          "size": 2038963,
+          "sha256": "84c0019596230855a22fee034cdbe7d4d2b4338e9b6caa85fc1e13cb2234fbed"
+        },
+        {
+          "path": "Data/ccBGSFO4038-HorseArmor - Textures.ba2",
+          "size": 126295340,
+          "sha256": "5101a8f5f0894aaa3058b9a7753c6da815805f0eede35d654f4e8ff8872b22e5"
+        },
+        {
+          "path": "Data/ccBGSFO4044-HellfirePowerArmor - Main.ba2",
+          "size": 2214255,
+          "sha256": "98002d19a2b9ec7a5bca56f1e64c99b74e466b23c88a32ecf1c407755d7b90d2"
+        },
+        {
+          "path": "Data/ccBGSFO4044-HellfirePowerArmor - Textures.ba2",
+          "size": 76970780,
+          "sha256": "71ac5347d23ccbe2b18f4e1a99c38bd4319cf4818a6d707a942866c08b7ddb89"
+        },
+        {
+          "path": "Data/ccFRSFO4001-HandmadeShotgun - Main.ba2",
+          "size": 2598316,
+          "sha256": "a8dca6a10fa4c1beedd752f874031b43f7ae8e875577a2bf74141e43638447dc"
+        },
+        {
+          "path": "Data/ccFRSFO4001-HandmadeShotgun - Textures.ba2",
+          "size": 31347740,
+          "sha256": "945214def0fcf5a3a2f48a97feea9aed2a91ba5ca98d9ed59b791c1ebcfcd1a3"
+        },
+        {
+          "path": "Data/ccFSVFO4001-ModularMilitaryBackpack - Main.ba2",
+          "size": 15287090,
+          "sha256": "2d7466b100737d572c15dc1d5a9df0e629e682e0f30f17a8acf548910e1ff1b6"
+        },
+        {
+          "path": "Data/ccFSVFO4001-ModularMilitaryBackpack - Textures.ba2",
+          "size": 52674155,
+          "sha256": "1ec1a00ed3e9d4c2d9a1518b075b8b4f6bddce2c860c09bd1f505830eb0675a9"
+        },
+        {
+          "path": "Data/ccFSVFO4002-MidCenturyModern - Main.ba2",
+          "size": 1067454,
+          "sha256": "c5d6333ecb53e95aa136d22bda5b756c61a9b50a0b232b163de7b9f0f0a66581"
+        },
+        {
+          "path": "Data/ccFSVFO4002-MidCenturyModern - Textures.ba2",
+          "size": 124400219,
+          "sha256": "ab5c1ea221581a3d4225bee0bd6ffd7195ac0343c42a3383354d20b77c018cd0"
+        },
+        {
+          "path": "Fallout4.ccc",
+          "size": 4618,
+          "sha256": "6b26f77e410d966b77544207b468065605a4c47de8b20b8f37dae3b7c68059d0"
+        },
+        {
+          "path": "Fallout4/Fallout4Prefs.ini",
+          "size": 3633,
+          "sha256": "a989cb83f53ce98662b5d50aa3bfd06688ddd5b8a5fe5054fbd0ce0b4c3ce999"
+        },
+        {
+          "path": "Fallout4Launcher.exe",
+          "size": 4522496,
+          "sha256": "5e457259dca72c8d1217e2f08a981b630ffd5fe0d30bf28269c8b7898491c6ae"
+        },
+        {
+          "path": "GFSDK_GodraysLib.x64.dll",
+          "size": 348160,
+          "sha256": "c23f0d6a02f5260ed094b5806acac5ca885e86fb84fabd501beb0b33ab9e85fb"
+        },
+        {
+          "path": "GFSDK_SSAO_D3D11.win64.dll",
+          "size": 550400,
+          "sha256": "8fbde3ce18573ca5b8e5045ea924cf3e09e59c42b945348263201e41a204cab2"
+        },
+        {
+          "path": "High.ini",
+          "size": 1220,
+          "sha256": "8e1c9d671afd84bdb828e84d089e4748ad993b12da9959aef6ef63f9ac3b523d"
+        },
+        {
+          "path": "Low.ini",
+          "size": 1207,
+          "sha256": "3868bbb9f626952650efa888dc05232f8c6e2816769fc9d535e171dd3c921e26"
+        },
+        {
+          "path": "Medium.ini",
+          "size": 1215,
+          "sha256": "2e370a800a63a3f3bdcb0ad8532f32b90734b949c7176d790376c05e93966ba7"
+        },
+        {
+          "path": "Ultra.ini",
+          "size": 1231,
+          "sha256": "fa0d4aa87be625676612fcb46b6d723b7e6eb68d383a712e49a5584d50c457d8"
+        },
+        {
+          "path": "bink2w64.dll",
+          "size": 427520,
+          "sha256": "0e19736e87202938d565f1471d0820979a95282c24a0a2b8b81c94a3599cd56b"
+        },
+        {
+          "path": "cudart64_75.dll",
+          "size": 360736,
+          "sha256": "d4210f400bcf3bc2553fc7c62493e96554c1b3b82d346db8adc84c75cea124d6"
+        },
+        {
+          "path": "flexExtRelease_x64.dll",
+          "size": 353280,
+          "sha256": "eea6967e74e9f59e0762dfa7d821311c82de7ceb974a61ecbb4e154b8d7357b7"
+        },
+        {
+          "path": "flexRelease_x64.dll",
+          "size": 1299968,
+          "sha256": "663e788ecf227f911e20938b9b4ac03b7340bca64bd6f7b9c121ddf7c3c82df5"
+        },
+        {
+          "path": "msvcp110.dll",
+          "size": 661456,
+          "sha256": "27f394ae01d12f851f1dee3632dee3c5afa1d267f7a96321d35fd43105b035ad"
+        },
+        {
+          "path": "msvcr110.dll",
+          "size": 849360,
+          "sha256": "ae996edb9b050677c4f82d56092efdc75f0addc97a14e2c46753e2db3f6bd732"
+        },
+        {
+          "path": "nvToolsExt64_1.dll",
+          "size": 42496,
+          "sha256": "81bd0159a73411791fa1606fe2426b763cc055ac1a50c141ce7e890392ece10a"
+        },
+        {
+          "path": "nvdebris.txt",
+          "size": 6559,
+          "sha256": "67bb20a4974c72258bfbf318ff1e23149d0ba70d0c9a74db64b82f84add0de28"
+        },
+        {
+          "path": "steam_api64.dll",
+          "size": 206760,
+          "sha256": "81321a5cb72ae3f81243fd0b0d8928a063ca09129ab0878573bd36a28422ec4c"
+        }
+      ]
     },
     {
       "id": 377162,
       "manifest": "5847529232406005096",
-      "files": []
+      "files": [
+        {
+          "path": "Fallout4.exe",
+          "size": 65503104,
+          "sha256": "55f57947db9e05575122fae1088f0b0247442f11e566b56036caa0ac93329c36"
+        }
+      ]
     },
     {
       "id": 377164,
       "manifest": "2178106366609958945",
-      "files": []
+      "files": [
+        {
+          "path": "Data/Fallout4 - Voices.ba2",
+          "size": 2606358161,
+          "sha256": "5c87ad9dc0c8d963111bd3b9e8b710186faeddbdaf9e5af190acf1e6e7c9034e"
+        },
+        {
+          "path": "Data/Video/Endgame_FEMALE_A.bk2",
+          "size": 221085404,
+          "sha256": "2ea61416ebb48049256c0dfed3fb550fa4c52edc38e229821278602111f60595"
+        },
+        {
+          "path": "Data/Video/Endgame_FEMALE_B.bk2",
+          "size": 191813488,
+          "sha256": "e6539b7829680e950e21d7d818a5e10e62e603d8b34f1366453c61aa45f15581"
+        },
+        {
+          "path": "Data/Video/Endgame_MALE_A.bk2",
+          "size": 221373680,
+          "sha256": "6c8ec71d2c3c5cca24652a0cd04eaae09c70df4ea55fec45b3fb7bd91e5e7929"
+        },
+        {
+          "path": "Data/Video/Endgame_MALE_B.bk2",
+          "size": 194541812,
+          "sha256": "3101ff31ff107f8e57de7257f55bba4b236a5bfc727a4a39f129e574fb9b2990"
+        },
+        {
+          "path": "Data/Video/Intro.bk2",
+          "size": 380362384,
+          "sha256": "17853c0363b13ebcababfd5e53742c04c96aa2a20fa19c6029ad2f9439852d54"
+        },
+        {
+          "path": "Fallout4_Default.ini",
+          "size": 2465,
+          "sha256": "843498b35623487e391b4e314f722d239de2e2842f18c3a30223d2b8044a6998"
+        }
+      ]
     },
     {
       "id": 435870,
       "manifest": "1691678129192680960",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCRobot - Geometry.csg",
+          "size": 32496988,
+          "sha256": "f9f0693ac1b2fbd2565de460386d361a27e29a8989957668053b1292e2d48d0c"
+        },
+        {
+          "path": "Data/DLCRobot - Main.ba2",
+          "size": 363294448,
+          "sha256": "462a10e929ff3ab09af66fa6c5f3eb75d699378a6c0ecd8de79571cbad39110a"
+        },
+        {
+          "path": "Data/DLCRobot - Textures.ba2",
+          "size": 218569835,
+          "sha256": "ae3801e98ea5aa8c8925a0dc9dc17227f46855f77aa05de5b8eb2156667e1fe6"
+        },
+        {
+          "path": "Data/DLCRobot.cdx",
+          "size": 1224328,
+          "sha256": "6d99ff6081ceae9b1a10560103d250f9344e2ba0aea821c204e9e17bd227f80e"
+        }
+      ]
     },
     {
       "id": 435871,
       "manifest": "5106118861901111234",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCRobot - Voices_en.ba2",
+          "size": 122977015,
+          "sha256": "7752c1e22de7dcbcaf78618ce4dc0d4d86b3b8907729fc087e0c915346c6256e"
+        },
+        {
+          "path": "Data/DLCRobot.esm",
+          "size": 8012051,
+          "sha256": "e71e04ac3f283332712c70ed23912b33972c3845eeb58b1a1c7c432d62651638"
+        }
+      ]
     },
     {
       "id": 435880,
       "manifest": "1255562923187931216",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCworkshop01 - Geometry.csg",
+          "size": 5824,
+          "sha256": "53b2a13047e806ddd42b32b72675523357390d0eb9fc4b825d0ddccf916d6e5a"
+        },
+        {
+          "path": "Data/DLCworkshop01 - Main.ba2",
+          "size": 55469349,
+          "sha256": "8650aa3a332b886d1ca0fb5afc966b7ec14f302e0b981cc02185bda8f5249d6b"
+        },
+        {
+          "path": "Data/DLCworkshop01 - Textures.ba2",
+          "size": 23234600,
+          "sha256": "083a617c29c7817009b79819661869ab9bd2adf683897f0bf7edb62d65770ecd"
+        },
+        {
+          "path": "Data/DLCworkshop01.cdx",
+          "size": 2168,
+          "sha256": "47d11af0bcc2a12540da810d480f84e9d1db57fcad51cf7793bfff96b1f5d796"
+        },
+        {
+          "path": "Data/DLCworkshop01.esm",
+          "size": 633592,
+          "sha256": "82914c20d3cf975472afbd96dac4d3fd30cf00a7e97dbf054286afafac4ac6da"
+        }
+      ]
     },
     {
       "id": 435881,
       "manifest": "1207717296920736193",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCCoast - Geometry.csg",
+          "size": 100938421,
+          "sha256": "2e9655b8cba569f951ff4c96822c6e118ce8380554dd7231bcba4810e6cc2e0d"
+        },
+        {
+          "path": "Data/DLCCoast - Main.ba2",
+          "size": 1446541131,
+          "sha256": "48c8d515a19a960b7421053016139f1c7bf28cfa68fecc643c1c46bb6d6a89ae"
+        },
+        {
+          "path": "Data/DLCCoast - Textures.ba2",
+          "size": 1335731328,
+          "sha256": "d800b065414007f5060879d199d1961c8f36489841bb61b34e8c560e99b1c6b4"
+        },
+        {
+          "path": "Data/DLCCoast.cdx",
+          "size": 6847144,
+          "sha256": "1925b54b39c1bc76eede72ae83f959e654e545b5b60e7e668cfa81a295b1d6eb"
+        }
+      ]
     },
     {
       "id": 435882,
       "manifest": "8482181819175811242",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCCoast - Voices_en.ba2",
+          "size": 525025586,
+          "sha256": "8595aced81e9a07e2c350676921167408cb20db4dff5fa06ed2dde1f6a4517f8"
+        },
+        {
+          "path": "Data/DLCCoast.esm",
+          "size": 74565260,
+          "sha256": "b8817779595f3576f6268e46b8295c85bc682d1c60c199191b5600cf5941680a"
+        }
+      ]
     },
     {
       "id": 480630,
       "manifest": "5527412439359349504",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCworkshop02 - Main.ba2",
+          "size": 95186371,
+          "sha256": "cfb46502e0837577cb9662f5652915c49ba41e3a5e6b63ce255621473da4f128"
+        },
+        {
+          "path": "Data/DLCworkshop02 - Textures.ba2",
+          "size": 169146799,
+          "sha256": "f960e81c8eb081f694e4de4b293463d255a8052af12110d2f6d90801e1acbdef"
+        },
+        {
+          "path": "Data/DLCworkshop02.esm",
+          "size": 677786,
+          "sha256": "9e907c7429da3d7c04403cf2d48bb920526d072b1e135ab2e8a4cdddde42e518"
+        }
+      ]
     },
     {
       "id": 480631,
       "manifest": "6588493486198824788",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCworkshop03 - Geometry.csg",
+          "size": 22562982,
+          "sha256": "3bd6c6393b180c9290f772464e9533fd93b66cf9d4039f007b9df481923c11b6"
+        },
+        {
+          "path": "Data/DLCworkshop03 - Main.ba2",
+          "size": 200696646,
+          "sha256": "8a7e98a411a5be3d5beb5ba6522712c0550d744d83776469efeea64b51e73e14"
+        },
+        {
+          "path": "Data/DLCworkshop03 - Textures.ba2",
+          "size": 208483596,
+          "sha256": "525df4c7368ba99edd65a6607530ab8c5e92ebb8fe96ddf6cab33c18fc2762c0"
+        },
+        {
+          "path": "Data/DLCworkshop03.cdx",
+          "size": 696408,
+          "sha256": "980516bdb4da447c949beaa21f4c7580f74c0c0937149bf676ef122afbc74b81"
+        }
+      ]
     },
     {
       "id": 393885,
       "manifest": "5000262035721758737",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCworkshop03 - Voices_en.ba2",
+          "size": 51750623,
+          "sha256": "6de4792edccffd0feb0f5d65d892b639d49243216633c2d1d48ef29a408330c2"
+        },
+        {
+          "path": "Data/DLCworkshop03.esm",
+          "size": 2971385,
+          "sha256": "08ece321cc224a48164342d258edf14e4640444efe56de900f4f932282368b06"
+        }
+      ]
     },
     {
       "id": 490650,
       "manifest": "4873048792354485093",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCNukaWorld - Geometry.csg",
+          "size": 104296054,
+          "sha256": "f7c46bf8b8e509637d260dfb3a8a8ca47c995e6cc5fba1b1d2ed052fbc8b8109"
+        },
+        {
+          "path": "Data/DLCNukaWorld - Main.ba2",
+          "size": 1488519533,
+          "sha256": "8f13f43cee9e4171515aa61279df052131107789de747e3d265d2f73229573b2"
+        },
+        {
+          "path": "Data/DLCNukaWorld - Textures.ba2",
+          "size": 2348553100,
+          "sha256": "3fe2c787f0d4d88b043ec5580982a5dd728bd7f031633c72d27d89b0d9f1351e"
+        },
+        {
+          "path": "Data/DLCNukaWorld.cdx",
+          "size": 5133432,
+          "sha256": "c14f9b0d8ff28e36f71c054f2b036da8b72a1e98890e2f6948248651068c9a74"
+        }
+      ]
     },
     {
       "id": 393895,
       "manifest": "7677765994120765493",
-      "files": []
+      "files": [
+        {
+          "path": "Data/DLCNukaWorld - Voices_en.ba2",
+          "size": 310189745,
+          "sha256": "39ae7b520573f3066b168929145d606f3fff3e1a89881b467297619fd97922d3"
+        },
+        {
+          "path": "Data/DLCNukaWorld.esm",
+          "size": 64313805,
+          "sha256": "8adb27458d10b1f09c5cd5c564af995a9d5a2e45b664418445b8063d3c8f7fb9"
+        }
+      ]
     }
   ],
-  "overrides": {},
-  "remove": []
+  "overrides": {
+    "Data/Fallout4 - Meshes.ba2": 377163
+  },
+  "remove": [
+    "Data/ccBGSFO4001-PipBoy(Black) - Main.ba2",
+    "Data/ccBGSFO4001-PipBoy(Black) - Textures.ba2",
+    "Data/ccBGSFO4003-PipBoy(Camo01) - Main.ba2",
+    "Data/ccBGSFO4003-PipBoy(Camo01) - Textures.ba2",
+    "Data/ccBGSFO4004-PipBoy(Camo02) - Main.ba2",
+    "Data/ccBGSFO4004-PipBoy(Camo02) - Textures.ba2",
+    "Data/ccBGSFO4006-PipBoy(Chrome) - Main.ba2",
+    "Data/ccBGSFO4006-PipBoy(Chrome) - Textures.ba2",
+    "Data/ccBGSFO4016-Prey - Main.ba2",
+    "Data/ccBGSFO4016-Prey - Textures.ba2",
+    "Data/ccBGSFO4018-GaussRiflePrototype - Main.ba2",
+    "Data/ccBGSFO4018-GaussRiflePrototype - Textures.ba2",
+    "Data/ccBGSFO4019-ChineseStealthArmor - Main.ba2",
+    "Data/ccBGSFO4019-ChineseStealthArmor - Textures.ba2",
+    "Data/ccBGSFO4020-PowerArmorSkin(Black) - Main.ba2",
+    "Data/ccBGSFO4020-PowerArmorSkin(Black) - Textures.ba2",
+    "Data/ccBGSFO4038-HorseArmor - Main.ba2",
+    "Data/ccBGSFO4038-HorseArmor - Textures.ba2",
+    "Data/ccBGSFO4044-HellfirePowerArmor - Main.ba2",
+    "Data/ccBGSFO4044-HellfirePowerArmor - Textures.ba2",
+    "Data/ccBGSFO4044-HellfirePowerArmor.esl",
+    "Data/ccBGSFO4046-TesCan - Main.ba2",
+    "Data/ccBGSFO4046-TesCan - Textures.ba2",
+    "Data/ccBGSFO4046-TesCan.esl",
+    "Data/ccBGSFO4096-AS_Enclave - Main.ba2",
+    "Data/ccBGSFO4096-AS_Enclave - Textures.ba2",
+    "Data/ccBGSFO4096-AS_Enclave.esl",
+    "Data/ccBGSFO4110-WS_Enclave - Main.ba2",
+    "Data/ccBGSFO4110-WS_Enclave - Textures.ba2",
+    "Data/ccBGSFO4110-WS_Enclave.esl",
+    "Data/ccBGSFO4115-X02 - Main.ba2",
+    "Data/ccBGSFO4115-X02 - Textures.ba2",
+    "Data/ccBGSFO4115-X02.esl",
+    "Data/ccBGSFO4116-HeavyFlamer - Main.ba2",
+    "Data/ccBGSFO4116-HeavyFlamer - Textures.ba2",
+    "Data/ccBGSFO4116-HeavyFlamer.esl",
+    "Data/ccFRSFO4001-HandmadeShotgun - Main.ba2",
+    "Data/ccFRSFO4001-HandmadeShotgun - Textures.ba2",
+    "Data/ccFSVFO4001-ModularMilitaryBackpack - Main.ba2",
+    "Data/ccFSVFO4001-ModularMilitaryBackpack - Textures.ba2",
+    "Data/ccFSVFO4002-MidCenturyModern - Main.ba2",
+    "Data/ccFSVFO4002-MidCenturyModern - Textures.ba2",
+    "Data/ccFSVFO4007-Halloween - Main.ba2",
+    "Data/ccFSVFO4007-Halloween - Textures.ba2",
+    "Data/ccFSVFO4007-Halloween.esl",
+    "Data/ccOTMFO4001-Remnants - Main.ba2",
+    "Data/ccOTMFO4001-Remnants - Textures.ba2",
+    "Data/ccOTMFO4001-Remnants.esl",
+    "Data/ccSBJFO4003-Grenade - Main.ba2",
+    "Data/ccSBJFO4003-Grenade - Textures.ba2",
+    "Data/ccSBJFO4003-Grenade.esl"
+  ],
+  "inventory_evidence": {
+    "status": "candidate_requires_review",
+    "base_manifest_sha256": "c3f995be641de20dd2bb8d49630ce817e4fbe920bd5502e72d088df5e48551a9",
+    "steam_exports": [],
+    "steam_cache": [
+      {
+        "depot": 377161,
+        "manifest": "7497069378349273908",
+        "sha256": "870cd4619201436ba6ddb30c1d04dbb060662aebfad4ba2ba8cd7bc765d23d27",
+        "entries": 14,
+        "regular_files": 12,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 377163,
+        "manifest": "5819088023757897745",
+        "sha256": "91eb6b50f6791f7408c826b93ae8bb605cbde205570c94a50a6b70680b68cea3",
+        "entries": 67,
+        "regular_files": 65,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 377162,
+        "manifest": "5847529232406005096",
+        "sha256": "17df1605c7d074ea74f145b061c3dc6ee52f211b9fd3d399beed47b2499cc739",
+        "entries": 1,
+        "regular_files": 1,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 377164,
+        "manifest": "2178106366609958945",
+        "sha256": "845486ee0776bb67d7a05b749aa88712bce47bd5013ab5db36b10c2c03ad86d0",
+        "entries": 9,
+        "regular_files": 7,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 435870,
+        "manifest": "1691678129192680960",
+        "sha256": "38eed4e1009f3578f8a9c42f398e38aba938be0d8699496a123e519520951068",
+        "entries": 4,
+        "regular_files": 4,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 435871,
+        "manifest": "5106118861901111234",
+        "sha256": "7b94576e4e1335c3d49c9c822704109d648f6f37beac233ec478ac8e25b19369",
+        "entries": 2,
+        "regular_files": 2,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 435880,
+        "manifest": "1255562923187931216",
+        "sha256": "b13ce9b6679dcbea2bfbbbae7ed50138281d8dfc4013b8de9b6b9a55105f4475",
+        "entries": 5,
+        "regular_files": 5,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 435881,
+        "manifest": "1207717296920736193",
+        "sha256": "03349b2ee7b68300ab0e667a740af782552811543b25a65c58adfaec27d5a199",
+        "entries": 4,
+        "regular_files": 4,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 435882,
+        "manifest": "8482181819175811242",
+        "sha256": "9ad527dafb400ef6c5663d54820ea536a75fdb0ab25e5b3ee3e28707ca0a2c56",
+        "entries": 2,
+        "regular_files": 2,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 480630,
+        "manifest": "5527412439359349504",
+        "sha256": "cb6fff0e96b3ac44fa1a781eb954e71cf55f3a852858a9ff60948fb0ec887075",
+        "entries": 3,
+        "regular_files": 3,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 480631,
+        "manifest": "6588493486198824788",
+        "sha256": "26f32785a1dd0c461a721a98120200a90fd502b0096ccbec9e1feedd36f14528",
+        "entries": 4,
+        "regular_files": 4,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 393885,
+        "manifest": "5000262035721758737",
+        "sha256": "a44d21e5d28e641cb9df0cf5fb02ad865df9d26ede8d2f7294bbb34419047946",
+        "entries": 2,
+        "regular_files": 2,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 490650,
+        "manifest": "4873048792354485093",
+        "sha256": "ff5b79dba44c156c5a9243a7b35c01cd3d8a2735ec321e7f0031a08be52a7dbb",
+        "entries": 4,
+        "regular_files": 4,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      },
+      {
+        "depot": 393895,
+        "manifest": "7677765994120765493",
+        "sha256": "46c33a040eed5cbffb4131a43322b06550f35e04b9a1b2ef909178bb28765aff",
+        "entries": 2,
+        "regular_files": 2,
+        "payload_crc_checked": true,
+        "signature_verified": false
+      }
+    ],
+    "cleanup_source": {
+      "depot": 377163,
+      "manifest": "5944191827186292545",
+      "sha256": "dbd9ead0d931b3dabb0d520260d7e6aa295916269a399decba4a6845fb2f67f6",
+      "entries": 92,
+      "regular_files": 92,
+      "payload_crc_checked": true,
+      "signature_verified": false
+    },
+    "review_notes": [
+      "Meshes owner 377163 follows the pinned community script and documented depot precedence.",
+      "Only the exact listed official Creation Club paths are excluded/removed; no runtime wildcard deletion.",
+      "HD Texture Pack was not present in this test installation; no universal cleanup coverage claimed.",
+      "Downloaded file size and SHA-1 matched every cached Steam manifest entry; SHA-256 recorded.",
+      "Local Steam cache provenance; signatures not independently verified."
+    ]
+  },
+  "exclude": [
+    "Data/ccBGSFO4001-PipBoy(Black) - Main.ba2",
+    "Data/ccBGSFO4001-PipBoy(Black) - Textures.ba2",
+    "Data/ccBGSFO4003-PipBoy(Camo01) - Main.ba2",
+    "Data/ccBGSFO4003-PipBoy(Camo01) - Textures.ba2",
+    "Data/ccBGSFO4004-PipBoy(Camo02) - Main.ba2",
+    "Data/ccBGSFO4004-PipBoy(Camo02) - Textures.ba2",
+    "Data/ccBGSFO4006-PipBoy(Chrome) - Main.ba2",
+    "Data/ccBGSFO4006-PipBoy(Chrome) - Textures.ba2",
+    "Data/ccBGSFO4016-Prey - Main.ba2",
+    "Data/ccBGSFO4016-Prey - Textures.ba2",
+    "Data/ccBGSFO4018-GaussRiflePrototype - Main.ba2",
+    "Data/ccBGSFO4018-GaussRiflePrototype - Textures.ba2",
+    "Data/ccBGSFO4019-ChineseStealthArmor - Main.ba2",
+    "Data/ccBGSFO4019-ChineseStealthArmor - Textures.ba2",
+    "Data/ccBGSFO4020-PowerArmorSkin(Black) - Main.ba2",
+    "Data/ccBGSFO4020-PowerArmorSkin(Black) - Textures.ba2",
+    "Data/ccBGSFO4038-HorseArmor - Main.ba2",
+    "Data/ccBGSFO4038-HorseArmor - Textures.ba2",
+    "Data/ccBGSFO4044-HellfirePowerArmor - Main.ba2",
+    "Data/ccBGSFO4044-HellfirePowerArmor - Textures.ba2",
+    "Data/ccFRSFO4001-HandmadeShotgun - Main.ba2",
+    "Data/ccFRSFO4001-HandmadeShotgun - Textures.ba2",
+    "Data/ccFSVFO4001-ModularMilitaryBackpack - Main.ba2",
+    "Data/ccFSVFO4001-ModularMilitaryBackpack - Textures.ba2",
+    "Data/ccFSVFO4002-MidCenturyModern - Main.ba2",
+    "Data/ccFSVFO4002-MidCenturyModern - Textures.ba2"
+  ],
+  "review": {
+    "date": "2026-11-01",
+    "evidence": "docs/linux-live-test.md",
+    "file_records": 117,
+    "selected_files": 90,
+    "disposable_deployment_verified": true
+  }
 }

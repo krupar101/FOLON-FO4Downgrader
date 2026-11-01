@@ -42,8 +42,8 @@ class Fixture(unittest.TestCase):
             self.manifest_data['depots'].append({'id': depot_id, 'manifest': str(depot_id * 100),
                 'files': [{'path': name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}]})
         self.write_manifest()
-        self.request = Request(self.game, self.root / 'stage', self.root / 'backend', self.root / 'backup',
-                               self.manifest_path, self.content, backup_enabled=True)
+        self.request = Request(self.game, self.root / 'stage', self.root / 'backend', self.root / 'state',
+                               self.manifest_path, self.content)
         self.events = []
         self.engine = Engine(self.request, self.events.append)
         self.addCleanup(patch.stopall)
@@ -85,29 +85,27 @@ class Fixture(unittest.TestCase):
         self.manifest_data['inventory_complete'] = False
         self.write_manifest()
         self.assertEqual(self.engine.run('deploy', True)['error_code'], 'MANIFEST_UNVERIFIED')
-        self.assertFalse((self.root / 'backup/transaction.json').exists())
+        self.assertFalse((self.root / 'state/transaction.json').exists())
 
     def test_success_report_and_repeat_are_verified(self):
         result = self.engine.run('deploy', True)
         self.assertTrue(result['ok'], result)
-        report = json.loads((self.root / 'backup/verification.json').read_text())
+        report = json.loads((self.root / 'state/verification.json').read_text())
         self.assertEqual(report['verification_level'], 'sha256_and_pe_version')
         before = self.snapshot()
         result = self.engine.run('resume', True)
-        self.assertTrue(result['already_installed'])
+        self.assertTrue(result['ok'])
         self.assertEqual(before, self.snapshot())
 
-    def test_target_version_failure_requires_rollback(self):
+    def test_target_version_failure_requires_retry(self):
         with patch('folon_downgrader.manifest.executable_version', return_value='1.0.0.0'):
             result = self.engine.run('deploy', True)
         self.assertEqual(result['error_code'], 'TARGET_VERIFY_FAILED')
-        self.assertTrue(result['rollback_required'])
-        self.assertFalse((self.root / 'backup/verification.json').exists())
-        result = self.engine.run('rollback', True)
-        self.assertTrue(result['ok'])
-        self.assertEqual((self.game / 'Fallout4.exe').read_bytes(), b'old exe')
+        self.assertTrue(result['retry_required'])
+        self.assertFalse((self.root / 'state/verification.json').exists())
+        self.assertTrue(Engine(self.request).run('deploy', True)['ok'])
 
-    def test_mid_deploy_failure_rollback_restores_bytes(self):
+    def test_mid_deploy_failure_can_retry(self):
         import folon_downgrader.deployment as deployment
         original = deployment.copy_replace
         before = self.snapshot()
@@ -122,17 +120,15 @@ class Fixture(unittest.TestCase):
         with patch.object(deployment, 'copy_replace', side_effect=broken):
             result = self.engine.run('deploy', True)
         self.assertEqual(result['error_code'], 'INSUFFICIENT_SPACE')
-        self.assertTrue(result['rollback_required'])
+        self.assertTrue(result['retry_required'])
         fresh = Engine(self.request)
-        self.assertTrue(fresh.run('rollback', True)['ok'])
-        self.assertEqual(before, self.snapshot())
-        self.assertTrue(fresh.run('rollback', True)['ok'])
-        self.assertEqual(before, self.snapshot())
+        self.assertTrue(fresh.run('deploy', True)['ok'])
+        self.assertEqual((self.game / 'Fallout4.exe').read_bytes(), b'new exe')
 
     def test_crash_after_replace_before_journal_update(self):
         from folon_downgrader.deployment import copy_replace
         files = verify_depots(self.content, Manifest(self.manifest_path))
-        tx = Transaction(self.game, self.root / 'backup')
+        tx = Transaction(self.game, self.root / 'state')
         before = self.snapshot()
         tx.prepare(files, [], Manifest(self.manifest_path).sha256)
         # Reproduce a process dying after replace, while the durable entry says writing.
@@ -140,8 +136,8 @@ class Fixture(unittest.TestCase):
         entry['state'] = 'writing'
         tx.save()
         copy_replace(*[files['Fallout4.exe'][0], self.game / 'Fallout4.exe', files['Fallout4.exe'][1]])
-        Transaction(self.game, self.root / 'backup').rollback()
-        self.assertEqual(before, self.snapshot())
+        self.assertTrue(Engine(self.request).run('deploy', True)['ok'])
+        self.assertEqual((self.game / 'Fallout4.exe').read_bytes(), b'new exe')
 
     def test_unexpected_worker_exception_stops_transition(self):
         with patch.object(self.engine, 'verified_source', side_effect=RuntimeError('synthetic secret')):
@@ -160,14 +156,8 @@ class Fixture(unittest.TestCase):
         self.assertEqual(self.engine.run('deploy')['error_code'], 'CONFIRMATION_REQUIRED')
         self.assertEqual((self.game / 'Fallout4.exe').read_bytes(), b'old exe')
 
-    def test_rollback_preserves_subsequent_user_changes(self):
-        self.assertTrue(self.engine.run('deploy', True)['ok'])
-        (self.game / 'Fallout4.exe').write_bytes(b'user edit')
-        before = self.snapshot()
-        self.assertEqual(self.engine.run('rollback', True)['error_code'], 'ROLLBACK_CONFLICT')
-        self.assertEqual(before, self.snapshot())
 
-    def test_allowlisted_cleanup_is_recoverable(self):
+    def test_allowlisted_cleanup_preserves_unlisted_files(self):
         (self.game / 'cc-official.ba2').write_bytes(b'original')
         (self.game / 'cc-user.ba2').write_bytes(b'user')
         self.manifest_data['remove'] = ['cc-official.ba2']
@@ -176,15 +166,7 @@ class Fixture(unittest.TestCase):
         self.assertTrue(self.engine.run('deploy', True)['ok'])
         self.assertFalse((self.game / 'cc-official.ba2').exists())
         self.assertEqual((self.game / 'cc-user.ba2').read_bytes(), b'user')
-        self.assertTrue(self.engine.run('rollback', True)['ok'])
-        self.assertEqual(before, self.snapshot())
 
-    def test_corrupt_backup_blocks_rollback_before_changes(self):
-        self.assertTrue(self.engine.run('deploy', True)['ok'])
-        (self.root / 'backup/original/Fallout4.exe').write_bytes(b'corrupt backup')
-        before = self.snapshot()
-        self.assertEqual(self.engine.run('rollback', True)['error_code'], 'HASH_MISMATCH')
-        self.assertEqual(before, self.snapshot())
 
     def test_source_symlink_rejected(self):
         target = self.content / 'depot_1/Fallout4.exe'
@@ -415,14 +397,12 @@ class ExcludedContentTests(unittest.TestCase):
         self.write_manifest()
         return source, target
 
-    def test_excluded_verified_content_is_removed_and_restorable(self):
+    def test_excluded_verified_content_is_removed(self):
         _, target = self.add_cc()
         before = self.snapshot()
         result = self.engine.run('deploy', True)
         self.assertTrue(result['ok'], result)
         self.assertFalse(target.exists())
-        self.assertTrue(self.engine.run('rollback', True)['ok'])
-        self.assertEqual(before, self.snapshot())
 
     def test_excluded_downloads_still_require_integrity(self):
         source, _ = self.add_cc()
@@ -437,20 +417,19 @@ class ExcludedContentTests(unittest.TestCase):
         self.assertEqual(self.engine.run('deploy', True)['error_code'], 'MANIFEST_INVALID')
 
 
-class FastDeploymentTests(Fixture):
+class FastDeploymentTests(unittest.TestCase):
+    setUp = Fixture.setUp
+    write_manifest = Fixture.write_manifest
+    snapshot = Fixture.snapshot
     def no_backup_engine(self):
-        from dataclasses import replace
-        return Engine(replace(self.request, backup_enabled=False))
+        return Engine(self.request)
 
-    def test_default_request_has_no_backup(self):
-        self.assertFalse(Request(self.game, self.root/'s', self.root/'b', self.root/'r', self.manifest_path).backup_enabled)
 
     def test_no_backup_installs_without_original_or_staging_copy(self):
         engine = self.no_backup_engine()
         self.assertTrue(engine.run('deploy', True)['ok'])
-        self.assertFalse((self.root/'backup/original').exists())
+        self.assertFalse((self.root/'state/original').exists())
         self.assertFalse((self.root/'stage').exists())
-        self.assertEqual(engine.run('rollback', True)['error_code'], 'BACKUP_DISABLED')
 
     def test_failed_no_backup_install_can_retry(self):
         import folon_downgrader.deployment as deployment
@@ -463,7 +442,6 @@ class FastDeploymentTests(Fixture):
         with patch.object(deployment, 'copy_replace', side_effect=broken):
             result = engine.run('deploy', True)
         self.assertTrue(result['retry_required'])
-        self.assertFalse(result['rollback_required'])
         self.assertTrue(self.no_backup_engine().run('deploy', True)['ok'])
 
     def test_download_verification_reuses_only_unchanged_files(self):
@@ -514,7 +492,10 @@ class SteamShutdownTests(unittest.TestCase):
         process.kill.assert_not_called()
 
 
-class RootAliasTests(Fixture):
+class RootAliasTests(unittest.TestCase):
+    setUp = Fixture.setUp
+    write_manifest = Fixture.write_manifest
+    snapshot = Fixture.snapshot
     def test_selected_roots_through_directory_alias_work(self):
         alias = self.root / 'home-alias'
         try:
@@ -522,12 +503,11 @@ class RootAliasTests(Fixture):
         except OSError:
             self.skipTest('Host does not permit symlink creation')
         request = Request(alias / self.game.relative_to(self.root), alias/'stage',
-                          alias/'backend', alias/'backup', self.manifest_path,
-                          alias/'content', backup_enabled=True)
+                          alias/'backend', alias/'state', self.manifest_path,
+                          alias/'content')
         self.assertEqual(request.game, self.game.resolve())
         self.assertEqual(request.content, self.content.resolve())
         self.assertTrue(Engine(request).run('deploy', True)['ok'])
-        self.assertTrue(Engine(request).run('rollback', True)['ok'])
 
     def test_alias_cannot_hide_overlapping_managed_roots(self):
         alias = self.root/'game-alias'
@@ -536,5 +516,22 @@ class RootAliasTests(Fixture):
         except OSError:
             self.skipTest('Host does not permit symlink creation')
         request = Request(self.game, alias/'stage', self.root/'backend',
-                          self.root/'backup', self.manifest_path, self.content)
+                          self.root/'state', self.manifest_path, self.content)
         self.assertEqual(Engine(request).run('deploy', True)['error_code'], 'PATH_CONFLICT')
+
+
+class BundledInventoryTests(unittest.TestCase):
+    def test_bundled_inventory_enables_complete_reviewed_release(self):
+        from folon_downgrader.cli import manifest_path, parser
+        from folon_downgrader import __version__
+        manifest = Manifest(manifest_path())
+        manifest.require_inventory()
+        self.assertEqual(__version__, '2.0.0')
+        self.assertEqual(len(manifest.depots), 14)
+        self.assertEqual(sum(len(d['files']) for d in manifest.depots), 117)
+        self.assertEqual(len(manifest.selected_files()), 90)
+        self.assertEqual(manifest.data['overrides']['Data/Fallout4 - Meshes.ba2'], 377163)
+        self.assertEqual(len(manifest.data['remove']), 51)
+        flags = parser()._option_string_actions
+        self.assertNotIn('--backup', flags)
+        self.assertNotIn('--rollback', flags)

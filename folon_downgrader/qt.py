@@ -6,7 +6,7 @@ import sys
 
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
+from PyQt5.QtWidgets import (QApplication, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
     QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QPlainTextEdit, QProgressBar,
     QStackedWidget, QVBoxLayout, QWidget)
 
@@ -65,7 +65,7 @@ class Window(QWidget, FolonPages):
         self.TabIndex = 1
         self.setObjectName('centralWidget')
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setWindowTitle('FOLON Fallout 4 downgrader')
+        self.setWindowTitle('Downgrader 2.0')
         self.setWindowIcon(QIcon(Resources.resource_path('img/FOLON256.png')))
         layout = QVBoxLayout(self)
         self.progress = QProgressBar()
@@ -83,9 +83,6 @@ class Window(QWidget, FolonPages):
             setattr(self, 'tab' + str(number), page)
             self.pages.addWidget(page)
             getattr(self, 'tab' + str(number) + 'UI')()
-        self.backup_option = QCheckBox('Keep a backup for restoration (uses additional disk space)')
-        self.backup_option.setChecked(args.backup)
-        self.tab3.layout().insertRow(1, self.backup_option)
         self.game = self.PathEntry
         if args.game_path:
             self.game.setText(str(args.game_path))
@@ -96,19 +93,16 @@ class Window(QWidget, FolonPages):
         self.output.hide()
         layout.addWidget(self.output)
         footer = QHBoxLayout()
-        footer.addWidget(QLabel(__version__ + ' by Team FOLON'))
+        footer.addWidget(QLabel(__version__ + ' by FOLON Team'))
         footer.addStretch()
-        self.rollback = QPushButton('Restore backup')
-        self.rollback.clicked.connect(lambda: self.run('rollback'))
-        footer.addWidget(self.rollback)
         self.cancel = QPushButton('Cancel')
         self.cancel.clicked.connect(self.cancel_work)
         self.cancel.setEnabled(False)
         footer.addWidget(self.cancel)
         footer.addWidget(self.SubmitButton)
         layout.addLayout(footer)
-        self.controls = (self.SubmitButton, self.InstallButton, self.rollback, self.PathButton,
-                         self.game, self.UsernameEntry, self.PasswordEntry, self.backup_option)
+        self.controls = (self.SubmitButton, self.InstallButton, self.PathButton,
+                         self.game, self.UsernameEntry, self.PasswordEntry)
         resources = Path(Resources.resource_path('.'))
         style = (resources / 'FOLON.css').read_text(encoding='utf-8')
         style = style.replace('FOLON-Downgrader-Files/FOLONBackground.png', (resources / 'img/FOLONBackground.png').as_posix())
@@ -179,16 +173,15 @@ class Window(QWidget, FolonPages):
         from .cli import make_request
         self.args.game_path = Path(self.game.text()) if self.game.text() else None
         try:
-            self.args.backup = self.backup_option.isChecked()
             request = make_request(self.args)
         except (OSError, DowngradeError) as error:
             self.output.appendPlainText(str(error) if isinstance(error, DowngradeError) else 'Cannot access the selected directory.')
             return
         close_steam = False
-        if action in ('deploy', 'rollback'):
-            if QMessageBox.question(self, 'Confirm game changes', f'{action.title()}\nGame: {request.game}\nBackup: {str(request.backup) if request.backup_enabled else "Disabled"}\nContinue?') != QMessageBox.Yes:
+        if action == 'deploy':
+            if QMessageBox.question(self, 'Confirm game changes', f'{action.title()}\nGame: {request.game}\nContinue?') != QMessageBox.Yes:
                 return
-        if action in ('deploy', 'rollback'):
+        if action == 'deploy':
             from .platforms import steam_processes
             if steam_processes():
                 if QMessageBox.question(self, 'Close Steam', 'Steam must close before changing game files. Close Steam now?') != QMessageBox.Yes:
@@ -228,7 +221,7 @@ class Window(QWidget, FolonPages):
     def succeeded(self, result):
         action = self.worker.action
         if action == 'preflight':
-            if self.args.content_root:
+            if self.args.content_root or result.get('downloads_available'):
                 self._next_action = 'verify-download'
             else:
                 self.pages.setCurrentIndex(1)
@@ -238,18 +231,16 @@ class Window(QWidget, FolonPages):
             self.pages.setCurrentIndex(2)
         elif action == 'deploy':
             self.pages.setCurrentIndex(3)
-        if action == 'preflight' and not result.get('inventory_complete'):
-            self.output.show()
-            self.output.appendPlainText('Development preview: downloads can be collected, but deployment requires a reviewed file inventory.')
 
     def failed(self, result):
         self.output.show()
         self.PasswordEntry.clear()
         self.output.appendPlainText(result['error_code'] + ': ' + result['message'])
+        if self.worker and self.worker.action == 'verify-download' and not self.args.content_root:
+            self.pages.setCurrentIndex(1)
+            self.output.appendPlainText('Sign in to Steam to download missing or damaged files.')
         if result.get('retry_required'):
-            self.output.appendPlainText('No rollback backup was requested. Retry the downgrade, or restore the game using Steam.')
-        if result.get('rollback_required'):
-            self.output.appendPlainText('Deployment may have changed files. Use Restore backup before trying again.')
+            self.output.appendPlainText('Retry the downgrade, or restore the game using Steam.')
 
     def reset(self):
         for control in self.controls:

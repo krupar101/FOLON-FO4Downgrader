@@ -1,4 +1,4 @@
-name: Windows and Linux development builds
+name: Downgrader 2.0 — Windows and Linux
 on:
   push:
   pull_request:
@@ -38,14 +38,14 @@ jobs:
           curl --fail --location --proto '=https' --tlsv1.2 https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64 -o "$APPIMAGE_RUNTIME"
           chmod +x "$APPIMAGETOOL"
           packaging/linux/build-appimage.sh
-          dist/FOLON-Downgrader-x86_64.AppImage --appimage-extract-and-run --help
+          dist/Downgrader-2.0-x86_64.AppImage --appimage-extract-and-run --help
       - name: Smoke test packaged CLI and GUI
         run: python packaging/smoke-test.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: FOLON-Downgrader-development-${{ matrix.os }}
+          name: Downgrader-2.0-${{ matrix.os }}
           if-no-files-found: error
           path: |
-            dist/FOLON-Downgrader/
+            dist/Downgrader-2.0/
             dist/*.AppImage
             dist/*.sha256

@@ -1,20 +1,19 @@
-# FOLON Fallout 4 Downgrader — Windows and Linux development branch
+# Downgrader 2.0
 
-One Python engine and the original FOLON Qt pages on Windows x64 and Linux x86-64.
-The Linux release format is an **AppImage opening the same GUI as Windows**.
-macOS is out of scope. This tool downgrades Steam Fallout 4; it does not install
-Fallout: London, configure Proton, or install mods.
+Version **2.0.0 by FOLON Team**. The same Python/Qt application runs on Windows
+x64 and Linux x86-64, with an AppImage for Linux. It downgrades Steam Fallout 4
+to **1.10.163.0**; it does not install Fallout: London or configure Proton.
 
-**This branch is a development preview, not a finished downgrade release.**
-The bundled manifest pins the 14 documented English depots for Fallout 4
-1.10.163.0 but lacks a complete trusted file inventory. Real deployment stops with
-`MANIFEST_UNVERIFIED` until that inventory is obtained and reviewed. Do not toggle
-the flag to bypass review. See [inventory acquisition](docs/inventory.md) and
-[validation status](docs/validation.md).
+The bundled English inventory covers all 14 pinned depots, with 117 verified
+file records, 90 selected installation files and an exact 51-file Creation Club
+cleanup list. It was checked against authenticated SteamCMD downloads and cached
+Steam metadata, then exercised on a disposable installation. Deployment is enabled.
+End-to-end Windows/Linux game testing is ongoing; no release has been published.
+See [validation status](docs/validation.md) for evidence and remaining tests.
 
 ## Run
 
-Downloaded builds include Python and Qt. Open `FOLON-Downgrader.exe` on Windows,
+Downloaded builds include Python and Qt. Open `Downgrader-2.0.exe` on Windows,
 or make the Linux AppImage executable and open it. Both launch the same GUI.
 Linux additionally needs the native SteamCMD 32-bit runtime; see [Linux notes](LinuxDeps.md).
 
@@ -44,7 +43,7 @@ python FOLON-Downgrader.py --game-path "/library/steamapps/common/Fallout 4" --v
 python FOLON-Downgrader.py --game-path "/library/steamapps/common/Fallout 4" --verify-only
 ```
 
-`--staging-root`, `--steamcmd-root`, `--backup-root` and `--content-root` let you
+`--staging-root`, `--steamcmd-root`, `--state-root` and `--content-root` let you
 select separate writable locations, including secondary drives. Defaults are in
 `%LOCALAPPDATA%/FOLON-Downgrader` or `$XDG_DATA_HOME/folon-downgrader`
 (`~/.local/share/folon-downgrader` if unset). The game stays in its Steam library.
@@ -55,19 +54,16 @@ in a bounded 1 MiB buffer, and the installed files are verified afterward. Allow
 space for downloads, any installation growth and one temporary replacement file.
 
 `--deploy --yes` explicitly confirms modifying the supplied `--game-path`.
-Backups are **off by default**. Select “Keep a backup for restoration” in the GUI
-or pass `--backup` to preserve affected original files, requiring additional disk
-space. `--rollback --yes` restores that journaled backup. Retain it until no longer
-needed. Interrupted deployments with backups require rollback first; without
-backups, retry the downgrade or restore the game through Steam. The small
-transaction journal is retained even when file backups are disabled.
+The tool does not create game backups or offer restoration. A small transaction
+record tracks progress; an interrupted downgrade can be retried using the retained
+downloads. Steam can restore the current game through its own file verification.
 
 The GUI asks before requesting Steam's normal shutdown and waits for it to exit.
 It never force-kills Steam. CLI deployment requires Steam to be closed manually.
 CLI download uses interactive SteamCMD; normal GUI use does not need a terminal.
 
 There is no wildcard CC/HD deletion and no automatic Steam update blocking.
-Only exact removals in a reviewed manifest are applied; backups follow your selected option. Saves,
+Only exact removals in a reviewed manifest are applied. Saves,
 Proton configuration, launchers and unrelated mods are outside the engine's scope.
 
 ## Develop
