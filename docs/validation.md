@@ -142,3 +142,12 @@ paths previously retained `/home` and failed the managed-root link check. Reques
 roots and default app data now resolve directory aliases before containment checks;
 links within managed trees are still rejected. Regression coverage verifies an
 aliased-root deployment/rollback and rejects overlapping roots hidden by an alias.
+
+## Steam shutdown follow-up
+
+The affected host retained an exited Steam process with Linux status `zombie`.
+Process detection now excludes zombie/dead entries. Shutdown waits cancellably
+without a fixed 30-second limit, reports waiting progress, and proceeds as soon
+as Steam exits. A discovery/exit race no longer reports a spurious shutdown error.
+The corrected host check returned zero active Steam processes. 59 tests pass,
+including slow shutdown, cancellation, exit races and zombie/dead filtering.

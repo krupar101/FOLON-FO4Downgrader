@@ -48,7 +48,8 @@ class Worker(QThread):
             from .platforms import shutdown_steam
             try:
                 self.progress.emit({'stage': 'steam_shutdown', 'message': 'Closing Steam…'})
-                shutdown_steam(self.engine.check_cancel)
+                shutdown_steam(self.engine.check_cancel, lambda message: self.progress.emit(
+                    {'stage': 'steam_shutdown', 'message': message}))
             except DowngradeError as error:
                 self.failed.emit({'ok': False, 'error_code': error.code, 'message': error.message})
                 return

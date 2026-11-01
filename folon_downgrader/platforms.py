@@ -84,26 +84,49 @@ def check_not_running():
 
 def steam_processes():
     import psutil
-    return [p for p in psutil.process_iter(['name'])
-            if (p.info['name'] or '').lower() in ('steam', 'steam.exe')]
+    active = []
+    for process in psutil.process_iter(['name', 'status']):
+        try:
+            if ((process.info['name'] or '').lower() in ('steam', 'steam.exe')
+                    and process.info['status'] not in (psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD)
+                    and process.is_running()):
+                active.append(process)
+        except psutil.NoSuchProcess:
+            continue
+        except psutil.AccessDenied:
+            # An inaccessible matching process must not be assumed to have exited.
+            if (process.info.get('name') or '').lower() in ('steam', 'steam.exe'):
+                active.append(process)
+    return active
 
 
-def shutdown_steam(cancel=lambda: None):
-    """Request Steam's normal shutdown, never force-kill it."""
+def shutdown_steam(cancel=lambda: None, progress=lambda message: None):
+    """Request normal shutdown and wait cancellably; exited zombies do not block."""
     import subprocess
     import time
     import psutil
     processes = steam_processes()
     if not processes:
         return
+    command = None
     try:
         executable = processes[0].exe()
-        subprocess.Popen([executable, '-shutdown'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        deadline = time.monotonic() + 30
-        while steam_processes():
-            cancel()
-            if time.monotonic() >= deadline:
-                fail('STEAM_RUNNING', 'Steam did not exit. Close Steam and retry the downgrade.')
-            time.sleep(0.2)
+        if executable:
+            command = subprocess.Popen([executable, '-shutdown'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except (OSError, psutil.Error):
-        fail('STEAM_RUNNING', 'Could not request Steam shutdown. Close Steam and retry the downgrade.')
+        # Steam can exit between discovery and exe()/Popen(). Recheck below.
+        pass
+    message = ('Waiting for Steam to finish closing… You can cancel while waiting.' if command else
+               'Close Steam to continue. Waiting for it to exit…')
+    next_update = 0
+    while True:
+        cancel()
+        if command is not None:
+            command.poll()  # Reap the shutdown helper when it exits.
+        if not steam_processes():
+            return
+        now = time.monotonic()
+        if now >= next_update:
+            progress(message)
+            next_update = now + 10
+        time.sleep(0.2)

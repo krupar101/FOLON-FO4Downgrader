@@ -480,16 +480,48 @@ class SteamShutdownTests(unittest.TestCase):
             shutdown_steam()
             self.assertEqual(spawn.call_args.args[0], ['/steam/steam', '-shutdown'])
 
-    def test_shutdown_timeout_does_not_force_kill(self):
+    def test_slow_shutdown_keeps_waiting_and_can_cancel(self):
         from folon_downgrader.platforms import shutdown_steam
         from unittest.mock import Mock
         process = Mock()
         process.exe.return_value = '/steam/steam'
-        with patch('folon_downgrader.platforms.steam_processes', return_value=[process]), patch('subprocess.Popen'), patch('time.monotonic', side_effect=[0, 31]):
+        cancel = Mock(side_effect=[None, None, DowngradeError('CANCELLED', 'Cancelled')])
+        progress = Mock()
+        with patch('folon_downgrader.platforms.steam_processes', return_value=[process]), patch('subprocess.Popen'), patch('time.monotonic', side_effect=[0, 120]), patch('time.sleep'):
             with self.assertRaises(DowngradeError) as error:
-                shutdown_steam()
-        self.assertEqual(error.exception.code, 'STEAM_RUNNING')
+                shutdown_steam(cancel, progress)
+        self.assertEqual(error.exception.code, 'CANCELLED')
+        self.assertEqual(progress.call_count, 2)
         process.kill.assert_not_called()
+
+    def test_steam_exits_between_discovery_and_shutdown(self):
+        import psutil
+        from folon_downgrader.platforms import shutdown_steam
+        from unittest.mock import Mock
+        process = Mock()
+        process.exe.side_effect = psutil.NoSuchProcess(42)
+        with patch('folon_downgrader.platforms.steam_processes', side_effect=[[process], []]), patch('subprocess.Popen') as spawn:
+            shutdown_steam()
+            spawn.assert_not_called()
+
+    def test_zombie_and_dead_steam_are_not_running(self):
+        import psutil
+        from folon_downgrader.platforms import steam_processes
+        from unittest.mock import Mock
+        zombie = Mock(info={'name': 'steam', 'status': psutil.STATUS_ZOMBIE})
+        dead = Mock(info={'name': 'steam.exe', 'status': psutil.STATUS_DEAD})
+        active = Mock(info={'name': 'steam', 'status': psutil.STATUS_SLEEPING})
+        active.is_running.return_value = True
+        with patch('psutil.process_iter', return_value=[zombie, dead, active]):
+            self.assertEqual(steam_processes(), [active])
+
+    def test_slow_shutdown_automatically_continues_on_exit(self):
+        from folon_downgrader.platforms import shutdown_steam
+        from unittest.mock import Mock
+        process = Mock()
+        process.exe.return_value = '/steam/steam'
+        with patch('folon_downgrader.platforms.steam_processes', side_effect=[[process], [process], [process], []]), patch('subprocess.Popen'), patch('time.monotonic', side_effect=[0, 120]), patch('time.sleep'):
+            shutdown_steam()
 
 
 class RootAliasTests(unittest.TestCase):
