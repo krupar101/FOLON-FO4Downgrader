@@ -24,6 +24,14 @@ class Request:
     content: Path | None = None
     backup_enabled: bool = False
 
+    def __post_init__(self):
+        # Resolve user-selected directory aliases once at the trust boundary.
+        # Paths inside these canonical roots still reject links/junctions.
+        for field in ('game', 'staging', 'steamcmd', 'backup', 'content'):
+            path = getattr(self, field)
+            if path is not None:
+                object.__setattr__(self, field, Path(path).resolve())
+
 
 class Engine:
     def __init__(self, request, emit=lambda event: None, ask=None):

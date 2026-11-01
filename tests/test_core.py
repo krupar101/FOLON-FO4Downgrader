@@ -512,3 +512,29 @@ class SteamShutdownTests(unittest.TestCase):
                 shutdown_steam()
         self.assertEqual(error.exception.code, 'STEAM_RUNNING')
         process.kill.assert_not_called()
+
+
+class RootAliasTests(Fixture):
+    def test_selected_roots_through_directory_alias_work(self):
+        alias = self.root / 'home-alias'
+        try:
+            alias.symlink_to(self.root, target_is_directory=True)
+        except OSError:
+            self.skipTest('Host does not permit symlink creation')
+        request = Request(alias / self.game.relative_to(self.root), alias/'stage',
+                          alias/'backend', alias/'backup', self.manifest_path,
+                          alias/'content', backup_enabled=True)
+        self.assertEqual(request.game, self.game.resolve())
+        self.assertEqual(request.content, self.content.resolve())
+        self.assertTrue(Engine(request).run('deploy', True)['ok'])
+        self.assertTrue(Engine(request).run('rollback', True)['ok'])
+
+    def test_alias_cannot_hide_overlapping_managed_roots(self):
+        alias = self.root/'game-alias'
+        try:
+            alias.symlink_to(self.game, target_is_directory=True)
+        except OSError:
+            self.skipTest('Host does not permit symlink creation')
+        request = Request(self.game, alias/'stage', self.root/'backend',
+                          self.root/'backup', self.manifest_path, self.content)
+        self.assertEqual(Engine(request).run('deploy', True)['error_code'], 'PATH_CONFLICT')

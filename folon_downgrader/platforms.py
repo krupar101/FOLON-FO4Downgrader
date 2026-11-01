@@ -15,8 +15,8 @@ def host():
 
 def data_root():
     if host() == 'windows':
-        return Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData/Local')) / 'FOLON-Downgrader'
-    return Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'folon-downgrader'
+        return (Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData/Local')) / 'FOLON-Downgrader').resolve()
+    return (Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'folon-downgrader').resolve()
 
 
 def steam_roots():

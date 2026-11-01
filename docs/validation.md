@@ -122,3 +122,11 @@ resolve both paths and explicitly write UTF-8. Local suite: 73 tests pass (this
 includes inherited deployment cases repeated under the fast-path test class).
 The workflow now pins versioned AppImage tools and action commits, avoids building
 Linux twice, and checks packaged GUI startup as well as CLI help.
+
+## Directory-alias fix
+
+On the affected Linux host, `/home` is a symlink to `/var/home`. Default app-data
+paths previously retained `/home` and failed the managed-root link check. Request
+roots and default app data now resolve directory aliases before containment checks;
+links within managed trees are still rejected. Regression coverage verifies an
+aliased-root deployment/rollback and rejects overlapping roots hidden by an alias.
