@@ -92,6 +92,29 @@ class GuiTests(unittest.TestCase):
         assert window.layout_root.stretch(4) == 0
         window.close()
 
+    def test_cancel_button_only_visible_during_active_operation(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.show()
+        app.processEvents()
+        self.assertTrue(window.cancel.isHidden())
+        self.assertFalse(window.cancel.isEnabled())
+        # No worker is needed to exercise the visible operation state.
+        window.start_activity('download')
+        window.cancel.setEnabled(True)
+        window.cancel.show()
+        app.processEvents()
+        self.assertTrue(window.cancel.isVisible())
+        self.assertTrue(window.cancel.isEnabled())
+        window.cancel.setEnabled(False)
+        window.cancel.hide()
+        app.processEvents()
+        self.assertTrue(window.cancel.isHidden())
+        window.close()
+
     def test_steam_login_fields_have_font_aware_height(self):
         from PyQt5.QtWidgets import QApplication
         from folon_downgrader.qt import Window

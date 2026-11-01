@@ -179,6 +179,7 @@ class Window(QWidget, FolonPages):
         self.cancel.setObjectName('SecondaryAction')
         self.cancel.clicked.connect(self.cancel_work)
         self.cancel.setEnabled(False)
+        self.cancel.hide()  # Cancel is only relevant while a worker is active.
         footer.addWidget(self.cancel)
         footer.addWidget(self.SubmitButton)
         self.layout_root.addLayout(footer)
@@ -341,6 +342,7 @@ class Window(QWidget, FolonPages):
         for control in self.controls:
             control.setEnabled(False)
         self.cancel.setEnabled(True)
+        self.cancel.show()
         self.pages.hide()
         self.set_activity_centered(True)
         self.worker.start()
@@ -541,6 +543,7 @@ class Window(QWidget, FolonPages):
         for control in self.controls:
             control.setEnabled(True)
         self.cancel.setEnabled(False)
+        self.cancel.hide()
         self.pages.show()
         self.set_activity_centered(False)
         # The progress view belongs only to an active worker. Errors are shown
