@@ -215,7 +215,7 @@ class Fixture(unittest.TestCase):
         (steam / 'steamapps').mkdir(parents=True)
         escaped = str(self.root / 'library').replace('\\', '\\\\')
         (steam / 'steamapps/libraryfolders.vdf').write_text(f'"libraryfolders" {{ "1" {{ "path" "{escaped}" }} }}', encoding="utf-8")
-        self.assertEqual(discover([steam]), [self.game])
+        self.assertEqual(discover([steam]), [self.game.resolve()])
 
     def test_overlapping_depot_files_require_owner(self):
         spec = copy.deepcopy(self.manifest_data['depots'][0]['files'][0])
