@@ -93,6 +93,20 @@ class FolonPages:
         card_layout.addWidget(self._hint_label('Tip: if you use Steam, auto-detect will try to find the correct installation automatically.'))
 
         page_layout.addWidget(card)
+
+        # Optional post-downgrade housekeeping, intentionally secondary to Continue.
+        storage_row = QHBoxLayout()
+        storage_row.setSpacing(10)
+        self.storage_status = self._hint_label('No saved depots available to remove.')
+        self.storage_status.setObjectName('StorageStatus')
+        self.storage_status.setWordWrap(True)
+        self.storage_button = QPushButton('Remove depots')
+        self.storage_button.setObjectName('SecondaryAction')
+        self.storage_button.setEnabled(False)
+        self.storage_button.clicked.connect(self.remove_saved_downloads)
+        storage_row.addWidget(self.storage_status, 1)
+        storage_row.addWidget(self.storage_button)
+        page_layout.addLayout(storage_row)
         page_layout.addStretch(1)
         self.tab1.setLayout(page_layout)
 

@@ -182,7 +182,7 @@ class Window(QWidget, FolonPages):
         footer.addWidget(self.cancel)
         footer.addWidget(self.SubmitButton)
         self.layout_root.addLayout(footer)
-        self.controls = (self.SubmitButton, self.InstallButton, self.PathButton, self.FindButton,
+        self.controls = (self.SubmitButton, self.InstallButton, self.PathButton, self.FindButton, self.storage_button,
                          self.game, self.UsernameEntry, self.PasswordEntry)
         resources = Path(Resources.resource_path('.'))
         style = (resources / 'FOLON.css').read_text(encoding='utf-8')
@@ -195,6 +195,8 @@ class Window(QWidget, FolonPages):
         self.setMinimumWidth(840)
         self.setFixedHeight(600)
         self.resize(980, 600)
+        self.PathEntry.textChanged.connect(self.refresh_storage_status)
+        self.refresh_storage_status()
 
     def set_activity_centered(self, centered):
         top = 1 if centered else 0
@@ -230,6 +232,58 @@ class Window(QWidget, FolonPages):
 
     def ChangeHiddenPassword(self):
         self.PasswordEntry.setEchoMode(QLineEdit.Password if self.PasswordCheck.isChecked() else QLineEdit.Normal)
+
+    def _storage_request(self):
+        from .cli import make_request
+        from .platforms import discover
+        game_path = self.game.text().strip()
+        if game_path:
+            self.args.game_path = Path(game_path)
+        else:
+            found = discover()
+            if len(found) != 1:
+                return None
+            self.args.game_path = found[0]
+        return make_request(self.args)
+
+    def refresh_storage_status(self, *_):
+        from .cleanup import removable_downloads
+        try:
+            request = self._storage_request()
+            usage = removable_downloads(request) if request else {'bytes': 0, 'files': 0}
+        except (OSError, DowngradeError):
+            usage = {'bytes': 0, 'files': 0}
+        count = usage['files']
+        self.storage_button.setEnabled(bool(count) and not (self.worker and self.worker.isRunning()))
+        if count:
+            size = usage['bytes']
+            for unit in ('B', 'KiB', 'MiB', 'GiB', 'TiB'):
+                if size < 1024 or unit == 'TiB':
+                    break
+                size /= 1024
+            self.storage_status.setText(f'Saved Fallout 4 depots: {size:.1f} {unit} ({count} files)')
+        else:
+            self.storage_status.setText('No saved Fallout 4 depots available to remove.')
+
+    def remove_saved_downloads(self):
+        from .cleanup import removable_downloads
+        try:
+            request = self._storage_request()
+            usage = removable_downloads(request) if request else {'bytes': 0, 'files': 0}
+        except (OSError, DowngradeError) as error:
+            self.error_banner.setText(f'Cannot check downloads: {error}')
+            self.error_banner.show()
+            return
+        if not usage['files']:
+            self.refresh_storage_status()
+            return
+        if QMessageBox.question(
+            self, 'Remove downloaded depots?',
+            'Remove the saved Fallout 4 depot files for this verified downgrade?\n\n'
+            'To downgrade again, you will need to download these depot files again.',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        ) == QMessageBox.Yes:
+            self.run('cleanup-downloads')
 
     def SteamSubmit(self):
         self.run('setup-steamcmd')
@@ -454,6 +508,7 @@ class Window(QWidget, FolonPages):
             self._offer_cleanup = True
         elif action == 'cleanup-downloads':
             self.output.appendPlainText('Downloaded files removed. Fallout 4 is ready.')
+            self.pages.setCurrentIndex(0)
 
     def failed(self, result):
         self._last_ok = False
@@ -476,7 +531,7 @@ class Window(QWidget, FolonPages):
             target = 2
             guidance = 'Review the error and retry the downgrade only after the underlying issue is resolved.'
         elif action == 'cleanup-downloads':
-            target = 3
+            target = 0
             guidance = 'The downgrade succeeded, but cleanup was interrupted. Your installed game is not removed.'
         else:
             target = 0
@@ -498,6 +553,7 @@ class Window(QWidget, FolonPages):
         # as a compact banner above the restored wizard page instead.
         self.activity.hide()
         self.log_toggle.setChecked(False)
+        self.refresh_storage_status()
         index = self.pages.currentIndex()
         self.SubmitButton.setText(['Continue', 'Login to Steam', 'Continue', 'Finish'][index])
         self.SubmitButton.setVisible(index != 2)

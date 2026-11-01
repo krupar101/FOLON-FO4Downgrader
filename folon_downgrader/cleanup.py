@@ -1,7 +1,7 @@
 """Delete only release-listed downloads; leave unrelated content untouched."""
 from pathlib import Path
 
-from .errors import fail
+from .errors import DowngradeError, fail
 from .files import inside
 
 
@@ -43,3 +43,40 @@ def remove_downloads(root, manifest, protected, cancel=lambda: None):
         except OSError:
             pass
     return {'files_removed': removed, 'bytes_removed': size}
+
+
+def removable_downloads(request):
+    """Read-only estimate for the exact files the verified cleanup action may remove.
+
+    Never count arbitrary files in the SteamCMD directory or the installed game.
+    A matching completed transaction is required, just as for actual cleanup.
+    """
+    import json
+    from .manifest import Manifest
+    from .steamcmd import SteamCmdProvider
+
+    try:
+        manifest = Manifest(request.manifest)
+        manifest.require_inventory()
+        state = json.loads(inside(request.state, 'transaction.json').read_text(encoding='utf-8'))
+        if (state.get('schema') != 2 or state.get('game') != str(request.game)
+                or state.get('status') != 'complete' or state.get('manifest') != manifest.sha256):
+            return {'bytes': 0, 'files': 0}
+        root = Path(state.get('download_root', ''))
+        allowed = ([request.content] if request.content else
+                   [request.staging / 'content', *SteamCmdProvider(request.steamcmd).candidate_roots()])
+        if root not in allowed or not root.is_dir():
+            return {'bytes': 0, 'files': 0}
+        # Do not turn the home-screen status check into an unsafe traversal.
+        if root.resolve().is_relative_to(request.game) or request.game.is_relative_to(root.resolve()):
+            return {'bytes': 0, 'files': 0}
+        total = count = 0
+        for depot in manifest.depots:
+            for spec in depot['files']:
+                file = inside(root, f"depot_{depot['id']}/{spec['path']}")
+                if file.is_file():
+                    total += file.stat().st_size
+                    count += 1
+        return {'bytes': total, 'files': count}
+    except (OSError, ValueError, TypeError, KeyError, DowngradeError):
+        return {'bytes': 0, 'files': 0}

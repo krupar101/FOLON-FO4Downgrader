@@ -695,6 +695,19 @@ class CleanupTests(unittest.TestCase):
     write_manifest = Fixture.write_manifest
     snapshot = Fixture.snapshot
 
+    def test_home_screen_storage_counts_only_verified_removable_files(self):
+        from folon_downgrader.cleanup import removable_downloads
+        self.assertEqual(removable_downloads(self.request)['files'], 0)
+        self.assertTrue(self.engine.run('deploy', True)['ok'])
+        unrelated = self.content / 'depot_1' / 'unrelated-user-file.txt'
+        unrelated.write_bytes(b'x' * 9999)
+        before = removable_downloads(self.request)
+        self.assertEqual(before['files'], 2)
+        self.assertGreater(before['bytes'], 0)
+        self.assertTrue(Engine(self.request).run('cleanup-downloads', True)['ok'])
+        self.assertEqual(removable_downloads(self.request), {'bytes': 0, 'files': 0})
+        self.assertTrue(unrelated.exists())
+
     def test_cleanup_requires_confirmation_and_success(self):
         self.assertEqual(self.engine.run('cleanup-downloads')['error_code'], 'CONFIRMATION_REQUIRED')
         self.assertFalse(self.engine.run('cleanup-downloads', True)['ok'])

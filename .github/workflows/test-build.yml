@@ -44,9 +44,23 @@ jobs:
           dist/Downgrader-2.0-x86_64.AppImage --appimage-extract-and-run --help
       - name: Smoke test packaged CLI and GUI
         run: python packaging/smoke-test.py
+      - name: Name Windows release files
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Move-Item dist/Downgrader-2.0.exe dist/FOLON-Downgrader-2.0.0-Windows-x64.exe
+          Move-Item dist/Downgrader-2.0-cli.exe dist/FOLON-Downgrader-2.0.0-Windows-x64-CLI.exe
+      - name: Name Linux release files
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mv dist/Downgrader-2.0-x86_64.AppImage dist/FOLON-Downgrader-2.0.0-Linux-x86_64.AppImage
+          cd dist
+          sha256sum FOLON-Downgrader-2.0.0-Linux-x86_64.AppImage > FOLON-Downgrader-2.0.0-Linux-x86_64.AppImage.sha256
+          rm -f Downgrader-2.0-x86_64.AppImage.sha256
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Downgrader-2.0-${{ matrix.os }}
+          name: FOLON-Downgrader-2.0.0-${{ runner.os }}-x64
           if-no-files-found: error
           path: |
             dist/*.exe
