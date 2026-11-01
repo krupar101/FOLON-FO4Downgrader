@@ -97,32 +97,50 @@ class Engine:
         existing = [p for p in candidates if p.is_dir()]
         if not existing:
             fail('DEPOT_TREE_MISSING', 'No downloaded depot tree exists. Game files have not been modified.')
-        valid = []
         last = None
         for candidate in existing:
             try:
                 files = verify_depots(candidate, manifest, self.check_cancel, self.verified_cache)
-                valid.append(files)
+                self.download_root = candidate
+                return files
             except DowngradeError as error:
                 if error.code == 'CANCELLED':
                     raise
                 last = error
-        if not valid:
-            raise last
-        return valid[0]  # Every candidate was checked against the identical trusted hashes.
+        raise last
 
     def run(self, action, confirmed=False):
         """All frontends use this success/failure boundary; no generic finished callback."""
         tx = None
+        self.game_modified = False
         try:
             with ExitStack() as locks:
                 locks.enter_context(Lock(self.lock_path()))
                 # Also serialize shared caches/state roots across different game selections.
-                for root in sorted({str(self.request.steamcmd.resolve()), str(self.request.staging.resolve()), str(self.request.state.resolve())}):
+                for root in sorted({str(p.resolve()) for p in (self.request.steamcmd, self.request.staging, self.request.state, self.request.content) if p is not None}):
                     key = hashlib.sha256(os.path.normcase(root).encode()).hexdigest()
                     locks.enter_context(Lock(data_root() / 'locks' / ('resource-' + key + '.lock')))
                 if action in ('deploy', 'repair', 'resume') and steam_processes():
                     fail('STEAM_RUNNING', 'Close Steam before changing game files.')
+                if action == 'cleanup-downloads':
+                    if not confirmed:
+                        fail('CONFIRMATION_REQUIRED', 'Confirm removal of downloaded files first.')
+                    from .cleanup import remove_downloads
+                    manifest = Manifest(self.request.manifest)
+                    manifest.require_inventory()
+                    tx = Transaction(self.request.game, self.request.state)
+                    state = tx.load()
+                    if state['status'] != 'complete' or state['manifest'] != manifest.sha256:
+                        fail('CLEANUP_NOT_READY', 'Downloads can only be removed after a verified successful downgrade.')
+                    root = Path(state.get('download_root', ''))
+                    r = self.request
+                    allowed = [r.content] if r.content else [r.staging / 'content', *SteamCmdProvider(r.steamcmd).candidate_roots()]
+                    if root not in allowed:
+                        fail('CLEANUP_NOT_READY', 'The recorded download directory does not match this installation session.')
+                    self.event(Stage.CLEANUP, message='Removing downloaded files…')
+                    removed = remove_downloads(root, manifest, [r.game, r.state], self.check_cancel)
+                    self.verified_cache.clear()
+                    return {'ok': True, 'stage': 'downloads_removed', 'game_modified': False, **removed}
                 manifest, report = self.preflight()
                 self.check_cancel()
                 if action in ('preflight', 'dry-run'):
@@ -168,6 +186,7 @@ class Engine:
                 result = {'ok': True, 'stage': 'complete', 'manifest_sha256': manifest.sha256,
                           'target_version': manifest.data['target_exe_version'], 'game_modified': True,
                           'verification_level': 'sha256_and_pe_version', 'files': len(files)}
+                tx.journal['download_root'] = str(self.download_root)
                 tx.complete(result)
                 self.event(Stage.COMPLETE, **{k: v for k, v in result.items() if k != 'stage'})
                 return result

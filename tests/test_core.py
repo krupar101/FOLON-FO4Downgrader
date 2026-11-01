@@ -567,3 +567,54 @@ class BundledInventoryTests(unittest.TestCase):
         flags = parser()._option_string_actions
         self.assertNotIn('--backup', flags)
         self.assertNotIn('--rollback', flags)
+
+
+class CleanupTests(unittest.TestCase):
+    setUp = Fixture.setUp
+    write_manifest = Fixture.write_manifest
+    snapshot = Fixture.snapshot
+
+    def test_cleanup_requires_confirmation_and_success(self):
+        self.assertEqual(self.engine.run('cleanup-downloads')['error_code'], 'CONFIRMATION_REQUIRED')
+        self.assertFalse(self.engine.run('cleanup-downloads', True)['ok'])
+        self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())
+
+    def test_cleanup_removes_only_downloads_after_success(self):
+        self.assertTrue(self.engine.run('deploy', True)['ok'])
+        installed = self.snapshot()
+        unrelated = self.content/'depot_1/keep.txt'
+        unrelated.write_text('keep')
+        result = Engine(self.request).run('cleanup-downloads', True)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(result['files_removed'], 2)
+        self.assertFalse((self.content/'depot_1/Fallout4.exe').exists())
+        self.assertTrue(unrelated.exists())
+        self.assertEqual(installed, self.snapshot())
+        self.assertTrue(Engine(self.request).run('cleanup-downloads', True)['ok'])
+
+    def test_failed_deployment_keeps_downloads(self):
+        with patch('folon_downgrader.manifest.executable_version', return_value='1.0.0.0'):
+            self.assertFalse(self.engine.run('deploy', True)['ok'])
+        self.assertEqual(Engine(self.request).run('cleanup-downloads', True)['error_code'], 'CLEANUP_NOT_READY')
+        self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())
+
+    def test_cleanup_rejects_link_before_deleting_any_file(self):
+        self.assertTrue(self.engine.run('deploy', True)['ok'])
+        source = self.content/'depot_2/Data/file.ba2'
+        source.unlink()
+        try:
+            source.symlink_to(self.game/'Data/file.ba2')
+        except OSError:
+            self.skipTest('Host does not permit symlink creation')
+        self.assertEqual(Engine(self.request).run('cleanup-downloads', True)['error_code'], 'UNSAFE_PATH')
+        self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())
+        self.assertTrue((self.game/'Data/file.ba2').exists())
+
+    def test_cleanup_cancellation_leaves_game_untouched(self):
+        self.assertTrue(self.engine.run('deploy', True)['ok'])
+        installed = self.snapshot()
+        engine = Engine(self.request)
+        engine.cancelled.set()
+        self.assertEqual(engine.run('cleanup-downloads', True)['error_code'], 'CANCELLED')
+        self.assertEqual(installed, self.snapshot())
+        self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())

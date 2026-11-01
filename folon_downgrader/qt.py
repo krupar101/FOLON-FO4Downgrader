@@ -232,10 +232,15 @@ class Window(QWidget, FolonPages):
             self.pages.setCurrentIndex(2)
         elif action == 'deploy':
             self.pages.setCurrentIndex(3)
+            self._offer_cleanup = True
+        elif action == 'cleanup-downloads':
+            self.output.appendPlainText('Downloaded files removed. Fallout 4 is ready.')
 
     def failed(self, result):
         self.output.show()
         self.PasswordEntry.clear()
+        if self.worker and self.worker.action == 'cleanup-downloads':
+            self.output.appendPlainText('The downgrade succeeded. Download cleanup did not finish; remaining downloads were kept.')
         self.output.appendPlainText(result['error_code'] + ': ' + result['message'])
         if self.worker and self.worker.action == 'verify-download' and not self.args.content_root:
             self.pages.setCurrentIndex(1)
@@ -253,6 +258,18 @@ class Window(QWidget, FolonPages):
         self.progress.setFormat(['Locate Fallout 4', 'Login to Steam / download', 'Downgrade Fallout 4', 'Verified'][index])
         self.SubmitButton.setText(['Continue', 'Login to Steam', 'Continue', 'Finish'][index])
         self.SubmitButton.setVisible(index != 2)
+        if getattr(self, '_offer_cleanup', False):
+            self._offer_cleanup = False
+            answer = QMessageBox.question(
+                self, 'Remove downloaded files?',
+                'Fallout 4 was downgraded and verified successfully.\n\n'
+                'Remove the downloaded game files to free disk space? '
+                'You would need to download them again for another downgrade.\n\n'
+                'Your installed game will not be removed.',
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer == QMessageBox.Yes:
+                self.run('cleanup-downloads')
+            return
         if getattr(self, '_next_action', None):
             action = self._next_action
             self._next_action = None

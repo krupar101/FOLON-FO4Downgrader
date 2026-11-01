@@ -151,3 +151,14 @@ without a fixed 30-second limit, reports waiting progress, and proceeds as soon
 as Steam exits. A discovery/exit race no longer reports a spurious shutdown error.
 The corrected host check returned zero active Steam processes. 59 tests pass,
 including slow shutdown, cancellation, exit races and zombie/dead filtering.
+
+## Optional download cleanup
+
+After successful deployment and target verification, the GUI offers download
+cleanup with No selected by default. Cleanup requires explicit confirmation and a
+completed transaction for the same manifest/source directory. It removes only
+inventory-listed depot files and empty directories; unknown files, SteamCMD and
+the installed game are retained. Links and overlapping protected directories are
+rejected before deletion. Cancellation or cleanup failure does not undo or mark
+the successful downgrade as failed. 65 tests pass, including opt-in GUI behavior,
+failed-deployment blocking, selective deletion, link rejection and cancellation.

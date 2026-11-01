@@ -55,3 +55,25 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(window.pages.currentIndex(), 1)
         window.worker = None
         window.close()
+
+    def test_cleanup_prompt_is_opt_in_after_success(self):
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication, QMessageBox
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        for answer in (QMessageBox.No, QMessageBox.Yes):
+            window = Window(parser().parse_args([]))
+            window.worker = SimpleNamespace(action='deploy')
+            window.succeeded({'ok': True})
+            with patch.object(QMessageBox, 'question', return_value=answer) as prompt, patch.object(window, 'run') as run:
+                window.reset()
+                prompt.assert_called_once()
+                if answer == QMessageBox.Yes:
+                    run.assert_called_once_with('cleanup-downloads')
+                else:
+                    run.assert_not_called()
+                window.reset()
+                prompt.assert_called_once()
+            window.worker = None
+            window.close()

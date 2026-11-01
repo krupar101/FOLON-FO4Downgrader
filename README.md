@@ -58,6 +58,11 @@ The tool does not create game backups or offer restoration. A small transaction
 record tracks progress; an interrupted downgrade can be retried using the retained
 downloads. Steam can restore the current game through its own file verification.
 
+After a successful, verified downgrade, the GUI asks whether to remove downloaded
+game files. Keeping them is the default. Cleanup removes only inventory-listed
+depot files, leaving the installed game, SteamCMD and unrelated files intact.
+Failed or cancelled downgrades keep their downloads for retrying.
+
 The GUI asks before requesting Steam's normal shutdown and waits for it to exit.
 It never force-kills Steam. CLI deployment requires Steam to be closed manually.
 CLI download uses interactive SteamCMD; normal GUI use does not need a terminal.

@@ -11,6 +11,7 @@ class Stage(str, Enum):
     DEPLOY = 'deploy'
     VERIFY_TARGET = 'verify_target'
     COMPLETE = 'complete'
+    CLEANUP = 'cleanup_downloads'
     FAILED = 'failed'
     CANCELLED = 'cancelled'
 
