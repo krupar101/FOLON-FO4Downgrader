@@ -298,7 +298,17 @@ if __name__ == '__main__':
 
 
 class GuiBackendTests(unittest.TestCase):
-    @unittest.skipIf(os.name == 'nt', 'POSIX executable fixture')
+    def use_python_child(self, script):
+        # Windows cannot execute a shebang script. Keep the real pipe/process
+        # integration test on both hosts by launching the fixture with Python.
+        popen = subprocess.Popen
+
+        def launch(args, **kwargs):
+            self.assertEqual(args, [str(script)])
+            return popen([sys.executable, str(script)], **kwargs)
+
+        self.enterContext(patch('folon_downgrader.steamcmd.subprocess.Popen', side_effect=launch))
+
     def test_pipe_auth_download_and_secret_output_is_not_emitted(self):
         from folon_downgrader.steamcmd import gui_download
         with tempfile.TemporaryDirectory() as temp:
@@ -321,7 +331,7 @@ assert input() == 'download_depot 377160 1 100'
 print('Depot download complete\\nSteam>', flush=True)
 assert input() == 'quit'
 ''')
-            script.chmod(0o700)
+            self.use_python_child(script)
             provider = SteamCmdProvider(root, 'linux')
             provider.check = lambda: script
             secret = 'test \\" ż synthetic-password'
@@ -334,7 +344,6 @@ assert input() == 'quit'
             self.assertEqual(list(root.iterdir()), [script])
 
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX executable fixture')
     def test_cached_login_retries_cleanup_and_requires_password(self):
         from folon_downgrader.steamcmd import gui_download
         with tempfile.TemporaryDirectory() as temp:
@@ -359,7 +368,7 @@ assert input() == 'download_depot 377160 1 100'
 print('Depot download complete\nSteam>', flush=True)
 assert input() == 'quit'
 ''')
-            script.chmod(0o700)
+            self.use_python_child(script)
             provider = SteamCmdProvider(root, 'linux')
             provider.check = lambda: script
             events = []
@@ -386,7 +395,7 @@ for _ in range(2):
     print('Waiting for user info...OK\nSteam>', flush=True)
 assert sys.stdin.readline() == ''  # no depot should be requested
 ''')
-            script.chmod(0o700)
+            self.use_python_child(script)
             provider = SteamCmdProvider(root, 'linux')
             provider.check = lambda: script
             with self.assertRaises(DowngradeError) as caught:
