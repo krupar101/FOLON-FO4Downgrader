@@ -21,5 +21,8 @@ appdir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 exec "$appdir/usr/FOLON-Downgrader" "$@"
 RUN
 chmod +x "$appdir/AppRun"
-ARCH=x86_64 "$APPIMAGETOOL" --appimage-extract-and-run --runtime-file "$APPIMAGE_RUNTIME" "$appdir" dist/FOLON-Downgrader-x86_64.AppImage
+outputdir="$(mktemp -d "$PWD/dist/.appimage-build.XXXXXX")"
+trap 'rm -rf -- "$outputdir"' EXIT
+ARCH=x86_64 "$APPIMAGETOOL" --appimage-extract-and-run --runtime-file "$APPIMAGE_RUNTIME" "$appdir" "$outputdir/FOLON-Downgrader-x86_64.AppImage"
+mv -f -- "$outputdir/FOLON-Downgrader-x86_64.AppImage" dist/FOLON-Downgrader-x86_64.AppImage
 sha256sum dist/FOLON-Downgrader-x86_64.AppImage > dist/FOLON-Downgrader-x86_64.AppImage.sha256
