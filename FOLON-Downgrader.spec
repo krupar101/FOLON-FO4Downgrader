@@ -1,11 +1,12 @@
 # Native Windows/Linux builds. Windows uses standalone one-file EXEs; the
 # Linux AppImage pipeline continues to consume a one-folder staging build.
 import sys
+from PyInstaller.utils.hooks import collect_data_files
 
 is_windows = sys.platform == 'win32'
 a = Analysis(
     ['FOLON-Downgrader.py'], pathex=[], binaries=[],
-    datas=[('FOLON.css', '.'), ('img/FOLON256.png', 'img'),
+    datas=collect_data_files('certifi') + [('FOLON.css', '.'), ('img/FOLON256.png', 'img'),
            ('img/FOLONBackground.png', 'img'), ('img/check.svg', 'img'),
            ('img/folder.svg', 'img'), ('img/alert.svg', 'img'),
            ('manifests/fo4-1.10.163.0-en.json', 'manifests'), ('LICENSE', '.')],

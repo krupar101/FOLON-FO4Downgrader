@@ -6,6 +6,8 @@ Backend-owned cache/log confidentiality still requires native-platform review.
 import os
 from pathlib import Path
 import shutil
+import ssl
+import certifi
 import signal
 import subprocess
 import tarfile
@@ -97,7 +99,11 @@ class SteamCmdProvider:
             tmp = Path(tmp)
             archive = tmp / 'download.partial'
             try:
-                with urllib.request.urlopen(URLS[self.platform], timeout=30) as inp, archive.open('wb') as out:
+                # Use an explicitly packaged CA trust bundle. Frozen PyInstaller apps
+                # cannot reliably discover distro CA paths (e.g. on Bazzite).
+                # Certificate/hostname verification stays enabled.
+                tls_context = ssl.create_default_context(cafile=certifi.where())
+                with urllib.request.urlopen(URLS[self.platform], timeout=30, context=tls_context) as inp, archive.open('wb') as out:
                     count = 0
                     while chunk := inp.read(1024 * 1024):
                         count += len(chunk)
@@ -118,9 +124,12 @@ class SteamCmdProvider:
                     else:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source, target)
-            except urllib.error.URLError as error:
-                code = 'TLS_VERIFY_FAILED' if 'CERTIFICATE_VERIFY_FAILED' in str(error.reason) else 'NETWORK_ERROR'
-                fail(code, 'Unable to download SteamCMD over verified HTTPS. Check network and OS certificates.')
+            except (urllib.error.URLError, TimeoutError) as error:
+                reason = getattr(error, 'reason', error)
+                is_tls = isinstance(reason, (ssl.SSLError, ssl.CertificateError)) or 'CERTIFICATE_VERIFY_FAILED' in str(reason)
+                if is_tls:
+                    fail('TLS_VERIFY_FAILED', 'SteamCMD download failed certificate verification. Check the system clock, network interception, and CA trust.')
+                fail('NETWORK_ERROR', f'Unable to reach the official SteamCMD download server over HTTPS ({type(reason).__name__}). Check DNS, firewall, proxy, and network connectivity.')
             except (tarfile.TarError, zipfile.BadZipFile):
                 fail('STEAMCMD_BOOTSTRAP_FAILED', 'Invalid SteamCMD archive. Retry setup.')
         return self.check()

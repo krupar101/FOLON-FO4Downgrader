@@ -230,6 +230,31 @@ class BackendTests(unittest.TestCase):
             path = SteamCmdProvider(self.root, 'windows').ensure_available()
         self.assertEqual(path.read_bytes(), b'fake executable')
 
+    def test_bootstrap_uses_packaged_verified_ca_bundle(self):
+        import ssl
+        import certifi
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, 'w') as z:
+            z.writestr('steamcmd.exe', b'fake executable')
+        archive.seek(0)
+        with patch('urllib.request.urlopen', return_value=archive) as request:
+            SteamCmdProvider(self.root, 'windows').ensure_available()
+        context = request.call_args.kwargs['context']
+        self.assertIsInstance(context, ssl.SSLContext)
+        self.assertTrue(context.verify_mode == ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        self.assertTrue(Path(certifi.where()).is_file())
+
+    def test_bootstrap_distinguishes_certificates_from_network_failures(self):
+        import ssl
+        from urllib.error import URLError
+        for reason, code in ((ssl.SSLCertVerificationError('certificate verify failed'), 'TLS_VERIFY_FAILED'),
+                             (OSError('Network is unreachable'), 'NETWORK_ERROR')):
+            with self.subTest(code=code), patch('urllib.request.urlopen', side_effect=URLError(reason)):
+                with self.assertRaises(DowngradeError) as caught:
+                    SteamCmdProvider(self.root, 'windows').ensure_available()
+                self.assertEqual(caught.exception.code, code)
+
     def test_archive_traversal_rejected_before_extraction(self):
         for name in ('../escape', '/absolute', 'C:/evil', 'folder/../../evil'):
             with self.subTest(name=name):

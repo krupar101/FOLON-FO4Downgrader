@@ -4,3 +4,6 @@ PyQt5==5.15.11
 PyQt5-sip==12.20.0
 PyQt5-Qt5==5.15.19; sys_platform == 'linux'
 PyQt5-Qt5==5.15.2; sys_platform == 'win32'
+
+# CA certificate bundle for verified HTTPS in frozen AppImage/Windows builds.
+certifi==2026.5.20
