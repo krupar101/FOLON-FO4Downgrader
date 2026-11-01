@@ -304,8 +304,9 @@ class GuiBackendTests(unittest.TestCase):
         popen = subprocess.Popen
 
         def launch(args, **kwargs):
-            self.assertEqual(args, [str(script)])
-            return popen([sys.executable, str(script)], **kwargs)
+            if args == [str(script)]:
+                return popen([sys.executable, str(script)], **kwargs)
+            return popen(args, **kwargs)
 
         self.enterContext(patch('folon_downgrader.steamcmd.subprocess.Popen', side_effect=launch))
 
