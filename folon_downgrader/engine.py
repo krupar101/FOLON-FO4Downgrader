@@ -128,19 +128,21 @@ class Engine:
                     from .cleanup import remove_downloads
                     manifest = Manifest(self.request.manifest)
                     manifest.require_inventory()
-                    tx = Transaction(self.request.game, self.request.state)
-                    state = tx.load()
-                    if state['status'] != 'complete' or state['manifest'] != manifest.sha256:
-                        fail('CLEANUP_NOT_READY', 'Downloads can only be removed after a verified successful downgrade.')
-                    root = Path(state.get('download_root', ''))
-                    r = self.request
-                    allowed = [r.content] if r.content else [r.staging / 'content', *SteamCmdProvider(r.steamcmd).candidate_roots()]
-                    if root not in allowed:
-                        fail('CLEANUP_NOT_READY', 'The recorded download directory does not match this installation session.')
-                    self.event(Stage.CLEANUP, message='Removing downloaded files…')
-                    removed = remove_downloads(root, manifest, [r.game, r.state], self.check_cancel)
+                    from .cleanup import cleanup_candidates
+                    candidates = cleanup_candidates(self.request, manifest)
+                    if not candidates:
+                        return {'ok': True, 'stage': 'downloads_removed', 'game_modified': False,
+                                'files_removed': 0, 'bytes_removed': 0}
+                    # Entire removal plan is validated before the first unlink.
+                    self.event(Stage.CLEANUP, message='Removing downloaded depots…')
+                    total_files = total_bytes = 0
+                    for root, _ in candidates:
+                        result = remove_downloads(root, manifest, [self.request.game, self.request.state], self.check_cancel)
+                        total_files += result['files_removed']
+                        total_bytes += result['bytes_removed']
                     self.verified_cache.clear()
-                    return {'ok': True, 'stage': 'downloads_removed', 'game_modified': False, **removed}
+                    return {'ok': True, 'stage': 'downloads_removed', 'game_modified': False,
+                            'files_removed': total_files, 'bytes_removed': total_bytes}
                 manifest, report = self.preflight()
                 self.check_cancel()
                 if action in ('preflight', 'dry-run'):

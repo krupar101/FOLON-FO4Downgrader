@@ -1,4 +1,4 @@
-"""Delete only release-listed downloads; leave unrelated content untouched."""
+"""Delete only manifest-listed depot files from recognized download roots."""
 from pathlib import Path
 
 from .errors import DowngradeError, fail
@@ -45,38 +45,56 @@ def remove_downloads(root, manifest, protected, cancel=lambda: None):
     return {'files_removed': removed, 'bytes_removed': size}
 
 
-def removable_downloads(request):
-    """Read-only estimate for the exact files the verified cleanup action may remove.
-
-    Never count arbitrary files in the SteamCMD directory or the installed game.
-    A matching completed transaction is required, just as for actual cleanup.
-    """
-    import json
-    from .manifest import Manifest
+def download_roots(request):
+    """Recognized depot locations; no transaction is needed for interrupted downloads."""
     from .steamcmd import SteamCmdProvider
+
+    if request.content:
+        return [request.content]
+    return [request.staging / 'content', *SteamCmdProvider(request.steamcmd).candidate_roots()]
+
+
+def cleanup_candidates(request, manifest):
+    """Prevalidate all roots and manifest-listed files before reporting or deletion."""
+    roots = []
+    for root in download_roots(request):
+        root = Path(root)
+        if not root.is_dir():
+            continue
+        # Canonicalized roots are supplied by Request; no cleanup may overlap
+        # the installed game or any of the application's other state roots.
+        base = root.resolve()
+        if any(base.is_relative_to(p.resolve()) or p.resolve().is_relative_to(base)
+               for p in (request.game, request.state)):
+            continue
+        if base == request.steamcmd.resolve() or request.steamcmd.resolve().is_relative_to(base):
+            continue
+        files = []
+        for depot in manifest.depots:
+            for spec in depot['files']:
+                file = inside(root, f"depot_{depot['id']}/{spec['path']}")
+                if file.exists():
+                    if not file.is_file():
+                        fail('UNSAFE_PATH', 'A downloaded file path is not a regular file.')
+                    files.append(file)
+        if files:
+            roots.append((root, files))
+    return roots
+
+
+def removable_downloads(request):
+    """Read-only count of known depot files, including unfinished downloads.
+
+    No successful deployment transaction is required. Only expected manifest
+    paths count; unknown content isn't claimed as removable.
+    """
+    from .manifest import Manifest
 
     try:
         manifest = Manifest(request.manifest)
         manifest.require_inventory()
-        state = json.loads(inside(request.state, 'transaction.json').read_text(encoding='utf-8'))
-        if (state.get('schema') != 2 or state.get('game') != str(request.game)
-                or state.get('status') != 'complete' or state.get('manifest') != manifest.sha256):
-            return {'bytes': 0, 'files': 0}
-        root = Path(state.get('download_root', ''))
-        allowed = ([request.content] if request.content else
-                   [request.staging / 'content', *SteamCmdProvider(request.steamcmd).candidate_roots()])
-        if root not in allowed or not root.is_dir():
-            return {'bytes': 0, 'files': 0}
-        # Do not turn the home-screen status check into an unsafe traversal.
-        if root.resolve().is_relative_to(request.game) or request.game.is_relative_to(root.resolve()):
-            return {'bytes': 0, 'files': 0}
-        total = count = 0
-        for depot in manifest.depots:
-            for spec in depot['files']:
-                file = inside(root, f"depot_{depot['id']}/{spec['path']}")
-                if file.is_file():
-                    total += file.stat().st_size
-                    count += 1
-        return {'bytes': total, 'files': count}
+        roots = cleanup_candidates(request, manifest)
+        return {'bytes': sum(p.stat().st_size for _, files in roots for p in files),
+                'files': sum(len(files) for _, files in roots)}
     except (OSError, ValueError, TypeError, KeyError, DowngradeError):
         return {'bytes': 0, 'files': 0}

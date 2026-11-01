@@ -695,9 +695,9 @@ class CleanupTests(unittest.TestCase):
     write_manifest = Fixture.write_manifest
     snapshot = Fixture.snapshot
 
-    def test_home_screen_storage_counts_only_verified_removable_files(self):
+    def test_home_screen_storage_counts_partial_downloads(self):
         from folon_downgrader.cleanup import removable_downloads
-        self.assertEqual(removable_downloads(self.request)['files'], 0)
+        self.assertEqual(removable_downloads(self.request)['files'], 2)
         self.assertTrue(self.engine.run('deploy', True)['ok'])
         unrelated = self.content / 'depot_1' / 'unrelated-user-file.txt'
         unrelated.write_bytes(b'x' * 9999)
@@ -708,10 +708,24 @@ class CleanupTests(unittest.TestCase):
         self.assertEqual(removable_downloads(self.request), {'bytes': 0, 'files': 0})
         self.assertTrue(unrelated.exists())
 
-    def test_cleanup_requires_confirmation_and_success(self):
+    def test_interrupted_second_depot_is_counted_and_removed(self):
+        from folon_downgrader.cleanup import removable_downloads
+        partial = self.content / 'depot_2/Data/file.ba2'
+        partial.write_bytes(b'part')
+        unlisted = partial.parent / 'keep-user.txt'
+        unlisted.write_bytes(b'unrelated')
+        usage = removable_downloads(self.request)
+        self.assertEqual(usage, {'bytes': len(b'new exe') + 4, 'files': 2})
+        result = Engine(self.request).run('cleanup-downloads', True)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(result['files_removed'], 2)
+        self.assertTrue(unlisted.exists())
+        self.assertEqual(removable_downloads(self.request), {'bytes': 0, 'files': 0})
+
+    def test_cleanup_requires_confirmation_but_not_completed_downgrade(self):
         self.assertEqual(self.engine.run('cleanup-downloads')['error_code'], 'CONFIRMATION_REQUIRED')
-        self.assertFalse(self.engine.run('cleanup-downloads', True)['ok'])
-        self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())
+        self.assertTrue(self.engine.run('cleanup-downloads', True)['ok'])
+        self.assertFalse((self.content/'depot_1/Fallout4.exe').exists())
 
     def test_cleanup_removes_only_downloads_after_success(self):
         self.assertTrue(self.engine.run('deploy', True)['ok'])
@@ -729,8 +743,8 @@ class CleanupTests(unittest.TestCase):
     def test_failed_deployment_keeps_downloads(self):
         with patch('folon_downgrader.manifest.executable_version', return_value='1.0.0.0'):
             self.assertFalse(self.engine.run('deploy', True)['ok'])
-        self.assertEqual(Engine(self.request).run('cleanup-downloads', True)['error_code'], 'CLEANUP_NOT_READY')
-        self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())
+        self.assertTrue(Engine(self.request).run('cleanup-downloads', True)['ok'])
+        self.assertFalse((self.content/'depot_1/Fallout4.exe').exists())
 
     def test_cleanup_rejects_link_before_deleting_any_file(self):
         self.assertTrue(self.engine.run('deploy', True)['ok'])

@@ -279,7 +279,7 @@ class Window(QWidget, FolonPages):
             return
         if QMessageBox.question(
             self, 'Remove downloaded depots?',
-            'Remove the saved Fallout 4 depot files for this verified downgrade?\n\n'
+            'Remove the saved Fallout 4 depot files, including downloads from interrupted attempts?\n\n'
             'To downgrade again, you will need to download these depot files again.',
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
         ) == QMessageBox.Yes:
