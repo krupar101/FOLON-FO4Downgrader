@@ -198,6 +198,7 @@ class Window(QWidget, FolonPages):
         self.resize(980, 600)
         self.PathEntry.textChanged.connect(self.refresh_storage_status)
         self.refresh_storage_status()
+        self._update_primary_action()
 
     def set_activity_centered(self, centered):
         top = 1 if centered else 0
@@ -222,11 +223,25 @@ class Window(QWidget, FolonPages):
     def GetDirectory(self):
         self.browse()
 
+    def _update_primary_action(self):
+        """Keep the footer action in sync with the currently visible wizard page."""
+        index = self.pages.currentIndex()
+        if index == 0:
+            ready = bool(self.game.text().strip())
+        elif index == 1:
+            ready = bool(self.UsernameEntry.text().strip() and self.PasswordEntry.text())
+        else:
+            ready = index == 3  # The ready-to-deploy page has its own action.
+        busy = bool(self.worker and self.worker.isRunning())
+        self.SubmitButton.setEnabled(ready and not busy)
+
     def edit_text_changed1(self, text):
-        self.SubmitButton.setEnabled(bool(text))
+        if self.pages.currentIndex() == 0:
+            self._update_primary_action()
 
     def edit_text_changed2(self, text):
-        self.SubmitButton.setEnabled(bool(self.UsernameEntry.text() and self.PasswordEntry.text()))
+        if self.pages.currentIndex() == 1:
+            self._update_primary_action()
 
     def GoToPassword(self):
         self.PasswordEntry.setFocus()
@@ -332,6 +347,7 @@ class Window(QWidget, FolonPages):
         except (OSError, DowngradeError):
             usage = {'bytes': 0, 'files': 0}
         self.storage_path.setText(str(self.current_download_root()))
+        self.storage_path.setCursorPosition(0)
         from .platforms import data_root
         self.storage_default.setEnabled(
             self.current_download_root().absolute() != (data_root() / 'steamcmd').absolute()
@@ -403,10 +419,12 @@ class Window(QWidget, FolonPages):
             self.output.appendPlainText('Unable to discover Steam libraries. Select the folder with Browse.')
 
     def run(self, action):
-        from .cli import make_request
-        self.args.game_path = Path(self.game.text()) if self.game.text() else None
+        from .cli import make_request, make_storage_request
+        self.args.game_path = Path(self.game.text().strip()) if self.game.text().strip() else None
         try:
-            request = make_request(self.args)
+            # Removing saved depots is independent of game selection.
+            request = (make_storage_request(self.args) if action == 'cleanup-downloads'
+                       else make_request(self.args))
         except (OSError, DowngradeError) as error:
             self.output.appendPlainText(str(error) if isinstance(error, DowngradeError) else 'Cannot access the selected directory.')
             return
@@ -643,8 +661,7 @@ class Window(QWidget, FolonPages):
         index = self.pages.currentIndex()
         self.SubmitButton.setText(['Continue', 'Login to Steam', 'Continue', 'Finish'][index])
         self.SubmitButton.setVisible(index != 2)
-        if index == 1:
-            self.SubmitButton.setEnabled(bool(self.UsernameEntry.text() and self.PasswordEntry.text()))
+        self._update_primary_action()
         if getattr(self, '_offer_cleanup', False):
             self._offer_cleanup = False
             answer = QMessageBox.question(

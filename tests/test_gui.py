@@ -92,6 +92,47 @@ class GuiTests(unittest.TestCase):
         assert window.layout_root.stretch(4) == 0
         window.close()
 
+    def test_cleanup_returns_home_without_enabling_continue_when_game_is_empty(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.game.clear()
+        self.assertFalse(window.SubmitButton.isEnabled())
+        window.worker = SimpleNamespace(action='cleanup-downloads', isRunning=lambda: False)
+        window.succeeded({'ok': True, 'files_removed': 5})
+        window.reset()
+        self.assertEqual(window.pages.currentIndex(), 0)
+        self.assertFalse(window.SubmitButton.isEnabled())
+        window.game.setText(' /tmp/example-fallout4 ')
+        self.assertTrue(window.SubmitButton.isEnabled())
+        window.game.setText('   ')
+        self.assertFalse(window.SubmitButton.isEnabled())
+        window.worker = None
+        window.close()
+
+    def test_depot_storage_selector_matches_game_selector_structure(self):
+        from PyQt5.QtWidgets import QApplication, QLineEdit
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        self.assertIsInstance(window.storage_path, QLineEdit)
+        self.assertTrue(window.storage_path.isReadOnly())
+        self.assertEqual(window.storage_path.minimumHeight(), window.game.minimumHeight())
+        storage_layout = window.storage_path.parentWidget().layout()
+        location_row = storage_layout.itemAt(1).layout()
+        management_row = storage_layout.itemAt(2).layout()
+        self.assertIs(location_row.itemAt(0).widget(), window.storage_path)
+        self.assertIs(location_row.itemAt(1).widget(), window.storage_change)
+        self.assertIs(location_row.itemAt(2).widget(), window.storage_default)
+        self.assertIs(management_row.itemAt(0).widget(), window.storage_status)
+        self.assertIs(management_row.itemAt(1).widget(), window.storage_open)
+        self.assertIs(management_row.itemAt(2).widget(), window.storage_button)
+        self.assertEqual(window.storage_change.text(), 'Change path')
+        window.close()
+
     def test_cancel_button_only_visible_during_active_operation(self):
         from PyQt5.QtWidgets import QApplication
         from folon_downgrader.qt import Window
