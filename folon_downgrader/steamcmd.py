@@ -193,7 +193,8 @@ def classify(returncode, output):
 
 def session_failure(code, phase, depot_id=None):
     """Fixed diagnostic text: never include raw Steam output or credentials."""
-    stage = {'startup': 'SteamCMD startup', 'login': 'Steam login',
+    stage = {'startup': 'SteamCMD startup', 'logout': 'Steam logout',
+             'clear_credentials': 'clearing saved Steam credentials', 'login': 'Steam login',
              'download': f'download of depot {depot_id}', 'quit': 'SteamCMD shutdown'}[phase]
     messages = {
         'TLS_VERIFY_FAILED': 'SteamCMD reported a certificate or TLS connection error. Check the system clock, certificates and network.',
@@ -346,6 +347,8 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                 phase_started = time.monotonic()
                 continue
             if phase == 'clear_credentials' and 'Steam>' in buffer:
+                logged_in = False
+                password_requested = False
                 send('login ' + username)
                 phase, buffer = 'login', ''
                 phase_started = time.monotonic()

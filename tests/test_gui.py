@@ -8,6 +8,50 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 @unittest.skipUnless(importlib.util.find_spec('PyQt5'), 'Qt is optional for headless core tests')
 class GuiTests(unittest.TestCase):
+    def test_exit_is_available_on_every_page_and_after_an_error(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.show()
+        for index in range(4):
+            window.pages.setCurrentIndex(index)
+            app.processEvents()
+            self.assertTrue(window.exit_button.isVisible())
+            self.assertTrue(window.exit_button.isEnabled())
+        window.failed({'error_code': 'GAME_NOT_FOUND', 'message': 'Invalid installation'})
+        self.assertTrue(window.exit_button.isVisible())
+        window.exit_button.click()
+        self.assertFalse(window.isVisible())
+
+    def test_exit_cancels_then_closes_without_starting_next_action(self):
+        import threading
+        from unittest.mock import Mock, patch
+        from PyQt5.QtWidgets import QApplication, QMessageBox
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        cancelled = threading.Event()
+        running = Mock(return_value=True)
+        window.worker = SimpleNamespace(action='download', isRunning=running,
+                                        engine=SimpleNamespace(cancelled=cancelled))
+        window.show()
+        window.exit_button.click()
+        self.assertTrue(cancelled.is_set())
+        self.assertTrue(window.isVisible())
+        self.assertFalse(window.exit_button.isEnabled())
+        # A completion signal may race with the request to exit.
+        window._next_action = 'deploy'
+        window._offer_cleanup = True
+        running.return_value = False
+        with patch.object(window, 'run') as run, patch.object(QMessageBox, 'question') as question:
+            window.reset()
+            run.assert_not_called()
+            question.assert_not_called()
+        self.assertFalse(window.isVisible())
+
     def test_missing_download_does_not_blame_credentials(self):
         from PyQt5.QtWidgets import QApplication
         from folon_downgrader.qt import Window
@@ -47,10 +91,53 @@ class GuiTests(unittest.TestCase):
         window = Window(parser().parse_args([]))
         self.assertEqual((window.width(), window.height()), (980, 600))
         self.assertEqual(window.minimumHeight(), 600)
-        self.assertEqual(window.maximumHeight(), 600)
+        self.assertGreater(window.maximumHeight(), 600)
         self.assertFalse(window.findChildren(QScrollArea))
         self.assertFalse(hasattr(window, 'page_scroll'))
         self.assertIs(window.layout_root.itemAt(3).widget(), window.pages)
+        window.close()
+
+    def test_window_resize_and_visibility_preserve_form_state(self):
+        from PyQt5.QtWidgets import QApplication, QLabel
+        from PyQt5.QtCore import Qt
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.game.setText('/test/steamapps/common/Fallout 4')
+        window.UsernameEntry.setText('test_user')
+        window.show()
+        app.processEvents()
+        for width, height in ((1100, 720), (840, 600), (1280, 800)):
+            window.resize(width, height)
+            app.processEvents()
+            self.assertEqual((window.width(), window.height()), (width, height))
+            window.hide()
+            app.processEvents()
+            window.show()
+            app.processEvents()
+        self.assertEqual(window.game.text(), '/test/steamapps/common/Fallout 4')
+        self.assertEqual(window.UsernameEntry.text(), 'test_user')
+        self.assertIsNone(window.worker)
+        self.assertIsInstance(window.storage_path, QLabel)
+        self.assertTrue(window.storage_path.textInteractionFlags() & Qt.TextSelectableByMouse)
+        window.close()
+
+    def test_disabled_continue_explains_missing_input(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        self.assertFalse(window.SubmitButton.isEnabled())
+        self.assertIn('game folder', window.action_hint.text())
+        window.game.setText('/test/Fallout 4')
+        self.assertTrue(window.SubmitButton.isEnabled())
+        self.assertTrue(window.action_hint.isHidden())
+        window.pages.setCurrentIndex(1)
+        window._update_primary_action()
+        self.assertFalse(window.SubmitButton.isEnabled())
+        self.assertIn('username and password', window.action_hint.text())
         window.close()
 
     def test_window_height_stays_constant_across_progress_and_recovery(self):
@@ -125,15 +212,14 @@ class GuiTests(unittest.TestCase):
         window.worker = None
         window.close()
 
-    def test_depot_storage_selector_matches_game_selector_structure(self):
-        from PyQt5.QtWidgets import QApplication, QLineEdit
+    def test_depot_storage_displays_path_separately_from_edit_action(self):
+        from PyQt5.QtWidgets import QApplication, QLabel
         from folon_downgrader.qt import Window
         from folon_downgrader.cli import parser
         app = QApplication.instance() or QApplication([])
         window = Window(parser().parse_args([]))
-        self.assertIsInstance(window.storage_path, QLineEdit)
-        self.assertTrue(window.storage_path.isReadOnly())
-        self.assertEqual(window.storage_path.minimumHeight(), window.game.minimumHeight())
+        self.assertIsInstance(window.storage_path, QLabel)
+        self.assertTrue(window.storage_path.wordWrap())
         storage_layout = window.storage_path.parentWidget().layout()
         location_row = storage_layout.itemAt(1).layout()
         management_row = storage_layout.itemAt(2).layout()

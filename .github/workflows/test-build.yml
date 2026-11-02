@@ -16,8 +16,9 @@ jobs:
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      # Full commit pins keep action code immutable; comments identify the upstream release/ref.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # releases/v4: backport fixes (#2524)
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
           cache: pip
@@ -58,7 +59,7 @@ jobs:
           cd dist
           sha256sum FOLON-Downgrader-2.0.0-Linux-x86_64.AppImage > FOLON-Downgrader-2.0.0-Linux-x86_64.AppImage.sha256
           rm -f Downgrader-2.0-x86_64.AppImage.sha256
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: FOLON-Downgrader-2.0.0-${{ runner.os }}-x64
           if-no-files-found: error

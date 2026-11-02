@@ -99,16 +99,16 @@ class FolonPages:
         storage_layout = QVBoxLayout(storage_card)
         storage_layout.setSpacing(5)
         storage_layout.addWidget(self._hint_label('Download storage'))
-        # Match the game-folder selector: a path field followed by two actions.
-        # It is read-only because changing the SteamCMD root needs validation
-        # and confirmation before the new path is saved.
+        # Display the saved location as selectable text; Change path owns edits.
         storage_path_row = QHBoxLayout()
         storage_path_row.setSpacing(8)
-        self.storage_path = QLineEdit()
-        self.storage_path.setObjectName('InsideTextBox')
-        self.storage_path.setReadOnly(True)
-        self.storage_path.setPlaceholderText('Depot download location')
-        self.storage_path.setMinimumHeight(max(40, self.storage_path.fontMetrics().height() + 20))
+        self.storage_path = QLabel()
+        self.storage_path.setObjectName('StoragePath')
+        self.storage_path.setTextFormat(Qt.PlainText)
+        self.storage_path.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        self.storage_path.setWordWrap(True)
+        self.storage_path.setMinimumWidth(0)
+        self.storage_path.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         storage_path_row.addWidget(self.storage_path, 1)
         self.storage_change = QPushButton('Change path')
         self.storage_change.setObjectName('SecondaryAction')

@@ -77,6 +77,8 @@ class Window(QWidget, FolonPages):
         super().__init__()
         self.args = args
         self.worker = None
+        self._exit_requested = False
+        self.action_hint = self._hint_label('')
         self.verified_cache = {}
         self.TabIndex = 1
         self.setObjectName('centralWidget')
@@ -173,14 +175,20 @@ class Window(QWidget, FolonPages):
         self.active_step = -1
         self._last_ok = False
         footer = QHBoxLayout()
-        footer.addWidget(QLabel(__version__ + ' by FOLON Team'))
+        footer.addWidget(QLabel(__version__ + ' — community fork'))
         footer.addStretch()
+        footer.addWidget(self.action_hint)
         self.cancel = QPushButton('Cancel')
         self.cancel.setObjectName('SecondaryAction')
         self.cancel.clicked.connect(self.cancel_work)
         self.cancel.setEnabled(False)
         self.cancel.hide()  # Cancel is only relevant while a worker is active.
         footer.addWidget(self.cancel)
+        self.exit_button = QPushButton('Exit')
+        self.exit_button.setObjectName('SecondaryAction')
+        self.exit_button.setToolTip('Close the downgrader. Running work will be cancelled safely first.')
+        self.exit_button.clicked.connect(self.close)
+        footer.addWidget(self.exit_button)
         footer.addWidget(self.SubmitButton)
         self.layout_root.addLayout(footer)
         self.controls = (self.SubmitButton, self.InstallButton, self.PathButton, self.FindButton, self.storage_button, self.storage_change, self.storage_default, self.storage_open,
@@ -190,11 +198,8 @@ class Window(QWidget, FolonPages):
         style = style.replace('FOLON-Downgrader-Files/FOLONBackground.png', (resources / 'img/FOLONBackground.png').as_posix())
         style = style.replace('FOLON-Downgrader-Files/check.svg', (resources / 'img/check.svg').as_posix())
         self.setStyleSheet(style)
-        # Keep exactly the same landscape height through every workflow state.
-        # A modest increase over the prior 560px fits login validation and
-        # authentication guidance without scroll areas or window jumps.
-        self.setMinimumWidth(840)
-        self.setFixedHeight(600)
+        # Keep a usable initial size while allowing the desktop to resize/maximize.
+        self.setMinimumSize(840, 600)
         self.resize(980, 600)
         self.PathEntry.textChanged.connect(self.refresh_storage_status)
         self.refresh_storage_status()
@@ -234,6 +239,12 @@ class Window(QWidget, FolonPages):
             ready = index == 3  # The ready-to-deploy page has its own action.
         busy = bool(self.worker and self.worker.isRunning())
         self.SubmitButton.setEnabled(ready and not busy)
+        reason = ''
+        if not busy and not ready:
+            reason = {0: 'Select a game folder to continue.',
+                      1: 'Enter your Steam username and password.'}.get(index, '')
+        self.action_hint.setText(reason)
+        self.action_hint.setVisible(bool(reason))
 
     def edit_text_changed1(self, text):
         if self.pages.currentIndex() == 0:
@@ -347,11 +358,13 @@ class Window(QWidget, FolonPages):
         except (OSError, DowngradeError):
             usage = {'bytes': 0, 'files': 0}
         self.storage_path.setText(str(self.current_download_root()))
-        self.storage_path.setCursorPosition(0)
         from .platforms import data_root
+        is_default = self.current_download_root().absolute() == (data_root() / 'steamcmd').absolute()
         self.storage_default.setEnabled(
-            self.current_download_root().absolute() != (data_root() / 'steamcmd').absolute()
-            and not (self.worker and self.worker.isRunning()))
+            not is_default and not (self.worker and self.worker.isRunning()))
+        self.storage_default.setText('Default location' if is_default else 'Restore default')
+        self.storage_default.setToolTip('Already using the default download location.' if is_default else
+                                        'Use the default download location. Existing files stay where they are.')
         self.storage_path.setToolTip(str(self.current_download_root()))
         count = usage['files']
         self.storage_button.setEnabled(bool(count) and not (self.worker and self.worker.isRunning()))
@@ -419,6 +432,8 @@ class Window(QWidget, FolonPages):
             self.output.appendPlainText('Unable to discover Steam libraries. Select the folder with Browse.')
 
     def run(self, action):
+        if self._exit_requested:
+            return
         from .cli import make_request, make_storage_request
         self.args.game_path = Path(self.game.text().strip()) if self.game.text().strip() else None
         try:
@@ -650,6 +665,11 @@ class Window(QWidget, FolonPages):
         self._offer_cleanup = False
 
     def reset(self):
+        if self._exit_requested:
+            self._next_action = None
+            self._offer_cleanup = False
+            self.close()
+            return
         completed_action = self.worker.action if self.worker else None
         for control in self.controls:
             control.setEnabled(True)
@@ -689,14 +709,23 @@ class Window(QWidget, FolonPages):
 
     def closeEvent(self, event):
         if self.worker and self.worker.isRunning():
+            self._exit_requested = True
+            self._next_action = None
+            self._offer_cleanup = False
             self.cancel_work()
-            self.output.appendPlainText('Cancelling; wait for the current safe write boundary, then close again.')
+            self.auth_hint_timer.stop()
+            self.exit_button.setText('Exiting…')
+            self.exit_button.setEnabled(False)
+            self.activity_detail.setText('Cancelling safely before closing…')
+            self.output.appendPlainText('Cancelling; the window will close when the current operation stops safely.')
             event.ignore()
         else:
             event.accept()
 
 
 def launch(args):
+    from .qt_platform import configure_display
+    configure_display()
     app = QApplication(sys.argv[:1])
     window = Window(args)
     window.show()

@@ -1,6 +1,6 @@
 # Downgrader 2.0
 
-Version **2.0.0 by FOLON Team**. The same Python/Qt application runs on Windows
+Version **2.0.0 — community fork of the Team FOLON downgrader**. The same Python/Qt application runs on Windows
 x64 and Linux x86-64, with an AppImage for Linux. It downgrades Steam Fallout 4
 to **1.10.163.0**; it does not install Fallout: London or configure Proton.
 
@@ -9,7 +9,7 @@ file records, 90 selected installation files and an exact 51-file Creation Club
 cleanup list. It was checked against authenticated SteamCMD downloads and cached
 Steam metadata, then exercised on a disposable installation. Deployment is enabled.
 End-to-end Windows/Linux game testing is ongoing; no release has been published.
-See [validation status](docs/validation.md) for evidence and remaining tests.
+See [testing status](build.md#testing-status) for remaining platform checks.
 
 ## Run
 
@@ -79,8 +79,7 @@ python -m unittest discover -s tests -v
 
 Tests use synthetic files and fake SteamCMD processes. They never download games
 or require personal Steam accounts. [Build instructions](build.md),
-[source audit](docs/source-audit.md), and [original engineering plan](docs/windows-linux-plan.md).
-The plan's CLI-first Linux proposal is superseded by the shared-GUI requirement.
+[source references](docs/source-audit.md), and [inventory maintenance](docs/inventory.md).
 
 Original upstream: [Fallout-London/FOLON-FO4Downgrader](https://github.com/Fallout-London/FOLON-FO4Downgrader).
 See the MIT [license](LICENSE). Thanks to the original Team FOLON contributors,

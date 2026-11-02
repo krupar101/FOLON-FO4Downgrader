@@ -1,6 +1,6 @@
 Current bundled inventory: `manifests/fo4-1.10.163.0-en.json` is reviewed and
 **enabled** for Downgrader 2.0 testing. It contains the verified SteamCMD dataset
-and explicit selection/cleanup rules recorded in `linux-live-test.md`. The
+and explicit selection/cleanup rules recorded in the manifest. The
 candidate generator still cannot approve newly generated inventories by itself.
 The earlier acquisition notes below describe how that evidence was obtained.
 
@@ -46,7 +46,7 @@ Without `--steam-manifests`, it only inventories local bytes: this helps inspect
 but does not prove completeness. Neither mode automatically establishes provenance.
 
 Review collisions (especially `Data/Fallout4 - Meshes.ba2`), assign explicit owners
-in `overrides`, and decide exact recoverable CC/HD removals. Validate the contract
+in `overrides`, and decide exact CC/HD removals. Validate the contract
 against an independently verified installation and the intended FOLON release.
 Only then commit the reviewed inventory with `inventory_complete: true` and run
 the real-device acceptance matrix. Do not redistribute game files in this repo.
@@ -79,4 +79,4 @@ signature verification. Source provenance and cache hashes remain recorded.
 explicit meshes owner, and exact cleanup paths. It remains disabled for general
 deployment. The `exclude` list prevents selected official CC assets from being
 installed, while still requiring their downloaded bytes to verify. `remove` names
-the exact destination files to back up/remove; no runtime wildcard is used.
+the exact destination files to remove; no runtime wildcard is used.

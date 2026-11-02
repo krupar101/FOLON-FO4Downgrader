@@ -132,8 +132,8 @@ QPushButton:enabled {
     background-color: #a380d2;
 }
 
-QPushButton::hover,
-QCheckBox::indicator::hover {
+QPushButton:enabled:hover,
+QCheckBox:enabled::indicator:hover {
     background-color: #b392de;
 }
 
@@ -151,9 +151,36 @@ QPushButton#PathButton {
     border: 1px solid #62576e;
 }
 
-QPushButton#SecondaryAction::hover,
-QPushButton#PathButton::hover {
+QPushButton#SecondaryAction:enabled:hover,
+QPushButton#PathButton:enabled:hover {
     background-color: #433b4b;
+    border-color: #b392de;
+}
+
+/* Object-name rules otherwise override generic disabled button styling. */
+QPushButton:disabled,
+QPushButton#PrimaryAction:disabled,
+QPushButton#InstallButton:disabled,
+QPushButton#SecondaryAction:disabled,
+QPushButton#PathButton:disabled {
+    color: #968b9f;
+    background-color: #29252e;
+    border: 1px dashed #514858;
+}
+
+QPushButton:enabled:focus,
+QPushButton#PrimaryAction:enabled:focus,
+QPushButton#InstallButton:enabled:focus,
+QPushButton#SecondaryAction:enabled:focus,
+QPushButton#PathButton:enabled:focus {
+    border: 2px solid #eadbff;
+}
+
+QLabel#StoragePath {
+    color: #ddd4ea;
+    background-color: transparent;
+    border: none;
+    padding: 4px 0;
 }
 
 QPushButton#InstallButton {
@@ -242,6 +269,12 @@ QToolButton {
     border: none;
     text-align: left;
     padding: 4px 0;
+}
+
+QToolButton:enabled:hover,
+QToolButton:enabled:focus {
+    color: #ffffff;
+    background-color: #433b4b;
 }
 
 QPlainTextEdit {

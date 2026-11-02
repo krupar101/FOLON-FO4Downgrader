@@ -323,6 +323,45 @@ if __name__ == '__main__':
 
 
 class GuiBackendTests(unittest.TestCase):
+    def test_credential_cleanup_failures_have_stage_diagnostics(self):
+        from folon_downgrader.steamcmd import session_failure
+        for phase in ('logout', 'clear_credentials'):
+            with self.subTest(phase=phase):
+                code, message = session_failure('DEPOT_DOWNLOAD_FAILED', phase)
+                self.assertEqual(code, 'DEPOT_DOWNLOAD_FAILED')
+                self.assertIn('Game files were not modified', message)
+
+    def test_refreshed_login_requires_its_own_success_confirmation(self):
+        from folon_downgrader.steamcmd import gui_download
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            script = root / 'fake'
+            script.write_text(r'''
+print('Steam>', flush=True)
+for attempt in range(2):
+    assert input() == 'logout'
+    print('Steam>', flush=True)
+    assert input() == 'clear_credentials'
+    print('Steam>', flush=True)
+    assert input() == 'login example_user'
+    if attempt == 0:
+        print('Waiting for user info...OK\nSteam>', flush=True)
+    else:
+        print('password:', flush=True)
+        assert input() == 'password'
+        print('Steam>', flush=True)
+        # An unconfirmed second login must not start downloading.
+        assert input() != 'download_depot 377160 1 100'
+''')
+            self.use_python_child(script)
+            provider = SteamCmdProvider(root, 'linux')
+            provider.check = lambda: script
+            with self.assertRaises(DowngradeError) as caught:
+                gui_download(provider, type('M', (), {'depots': [{'id': 1, 'manifest': '100'}]})(),
+                             lambda kind: 'example_user' if kind == 'username' else 'password',
+                             lambda event: None, timeout=5)
+            self.assertEqual(caught.exception.code, 'AUTH_PENDING')
+
     def use_python_child(self, script):
         # Windows cannot execute a shebang script. Keep the real pipe/process
         # integration test on both hosts by launching the fixture with Python.

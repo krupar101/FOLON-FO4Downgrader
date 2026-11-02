@@ -7,7 +7,7 @@ no community shell or GPL C# implementation was copied into it.
 
 - Commit: `c53629d8dd3034776b6f58010e60bfa4cb52abe2` (MIT).
 - `manifests/fo4-1.10.163.0-en.json` records the SHA-256 of `Manually.md` and
-  its 14 English depot/manifest pairs. Its empty file inventories are deliberate.
+  its 14 English depot/manifest pairs. Its file inventory is now populated and enabled.
 - Original `tab1UI`–`tab4UI` layouts are retained in `folon_downgrader/views.py`;
   resource paths and backend connections are adapted. No network font download
   is required at startup; unavailable Overseer fonts use Qt's fallback font.
@@ -73,19 +73,6 @@ also exited 0, demonstrating pipe transport (not authenticated Fallout downloads
 SteamCMD wrote logs under the user's Steam directory despite its separate tool
 root. The GUI deliberately does not retain raw backend output; this does not
 establish confidentiality of SteamCMD-owned state. No personal login was used.
-
-## AppImage build tool
-
-Official `AppImage/appimagetool`, asset `appimagetool-x86_64.AppImage`, continuous
-release inspected 2026-11-01. SHA-256, also supplied by GitHub's asset digest:
-`ac7fd56feade6002c2f57db39587113275d351fce911a5fbb29ea84cd0666cab`.
-The build script verifies this hash before executing the tool. The continuous URL
-may change; a changed digest must fail until deliberately reviewed.
-
-AppImage type2 runtime `continuous/runtime-x86_64` was downloaded separately and
-verified against GitHub's asset digest:
-`617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46`.
-The packager receives it via `--runtime-file`, avoiding implicit network downloads.
 
 ## Offline Steam manifest decoder references
 
