@@ -623,7 +623,11 @@ class Window(QWidget, FolonPages):
         # Always return to a usable wizard page after an interrupted operation.
         # In particular, SteamCMD login failures must not leave the progress
         # panel stacked above the login form.
-        if action in ('setup-steamcmd', 'download') or code in ('AUTH_FAILED', 'STEAM_AUTH_FAILED'):
+        if action in ('download', 'verify-download') and code in ('DEPOT_INCOMPLETE', 'HASH_MISMATCH', 'DEPOT_TREE_MISSING'):
+            target = 0 if self.args.content_root else 1
+            guidance = ('Check the selected content directory for missing or damaged files.' if self.args.content_root else
+                        'Downloaded files are missing or damaged. Retry Download to repair them.')
+        elif action in ('setup-steamcmd', 'download') or code in ('AUTH_FAILED', 'STEAM_AUTH_FAILED'):
             target = 1
             self.PasswordEntry.clear()
             guidance = 'Check your Steam credentials or approve the sign-in in the Steam app, then try again.'

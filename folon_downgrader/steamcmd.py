@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 import zipfile
 
-from .errors import fail
+from .errors import DowngradeError, fail
 from .files import inside, is_link
 from .platforms import host
 
@@ -137,6 +137,34 @@ class SteamCmdProvider:
     def candidate_roots(self):
         return [self.root / 'steamapps/content/app_377160',
                 self.root / 'linux32/steamapps/content/app_377160']
+
+
+def reset_incomplete_downloads(provider, manifest, cancel=lambda: None):
+    """Invalidate SteamCMD completion records whose depot bytes no longer verify.
+
+    Cleanup or an interrupted download can leave state_*.patch behind even when
+    content is absent. Keep the downloaded bytes and unrelated backend state.
+    """
+    from .manifest import verify_file
+
+    manifest.require_inventory()
+    for root in provider.candidate_roots():
+        if not root.is_dir():
+            continue
+        for depot in manifest.depots:
+            cancel()
+            state = inside(root, f"state_377160_{depot['id']}.patch")
+            if not state.is_file():
+                continue
+            for spec in depot['files']:
+                cancel()
+                try:
+                    verify_file(inside(root, f"depot_{depot['id']}/{spec['path']}"), spec)
+                except DowngradeError as error:
+                    if error.code not in ('DEPOT_INCOMPLETE', 'HASH_MISMATCH'):
+                        raise
+                    state.unlink()
+                    break
 
 
 def classify(returncode, output):

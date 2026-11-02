@@ -10,7 +10,7 @@ from .errors import DowngradeError, Stage, fail
 from .files import Lock, inside
 from .manifest import Manifest, executable_version, verify_depots, verify_target
 from .platforms import check_not_running, data_root, host, steam_processes
-from .steamcmd import SteamCmdProvider, interactive_download, gui_download
+from .steamcmd import SteamCmdProvider, interactive_download, gui_download, reset_incomplete_downloads
 
 
 @dataclass(frozen=True)
@@ -153,6 +153,7 @@ class Engine:
                     return {'ok': True, 'stage': 'bootstrap_steamcmd', 'game_modified': False}
                 if action == 'download':
                     self.event(Stage.DOWNLOAD)
+                    reset_incomplete_downloads(SteamCmdProvider(self.request.steamcmd), manifest, self.check_cancel)
                     if self.ask:
                         gui_download(SteamCmdProvider(self.request.steamcmd), manifest, self.ask, self.emit, self.check_cancel)
                     else:

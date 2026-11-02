@@ -89,9 +89,9 @@ class Manifest:
 
 def verify_file(path, spec):
     if not path.is_file():
-        fail('DEPOT_INCOMPLETE', 'A required file is absent.')
+        fail('DEPOT_INCOMPLETE', f'A required file is absent: {path}')
     if path.stat().st_size != spec['size'] or digest(path) != spec['sha256']:
-        fail('HASH_MISMATCH', 'A required file does not match the trusted release inventory.')
+        fail('HASH_MISMATCH', f'A required file does not match the trusted release inventory: {path}')
 
 
 def verify_depots(root, manifest, cancel=lambda: None, cache=None):

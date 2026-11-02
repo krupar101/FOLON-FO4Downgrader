@@ -8,6 +8,19 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 @unittest.skipUnless(importlib.util.find_spec('PyQt5'), 'Qt is optional for headless core tests')
 class GuiTests(unittest.TestCase):
+    def test_missing_download_does_not_blame_credentials(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.worker = SimpleNamespace(action='download', isRunning=lambda: False)
+        window.failed({'error_code': 'DEPOT_INCOMPLETE', 'message': 'Missing Fallout4.exe'})
+        self.assertEqual(window.pages.currentIndex(), 1)
+        self.assertIn('repair', window.error_banner.text())
+        self.assertNotIn('credentials', window.error_banner.text())
+        window.close()
+
     def test_original_pages_load_offline_and_failure_does_not_advance(self):
         from PyQt5.QtWidgets import QApplication
         from folon_downgrader.qt import Window

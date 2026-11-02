@@ -695,6 +695,37 @@ class CleanupTests(unittest.TestCase):
     write_manifest = Fixture.write_manifest
     snapshot = Fixture.snapshot
 
+    def test_retry_invalidates_cleanup_records_but_preserves_other_state(self):
+        from folon_downgrader.cleanup import remove_downloads
+        from folon_downgrader.steamcmd import reset_incomplete_downloads
+        manifest = Manifest(self.manifest_path)
+        provider = SteamCmdProvider(self.root / 'backend')
+        provider.candidate_roots = lambda: [self.content]
+        states = [self.content / f"state_377160_{d['id']}.patch" for d in manifest.depots]
+        unrelated = self.content / 'state_377160_999.patch'
+        for path in [*states, unrelated]:
+            path.write_bytes(b'completion record')
+        reset_incomplete_downloads(provider, manifest)
+        self.assertTrue(all(p.exists() for p in states))
+        remove_downloads(self.content, manifest, [self.game, self.request.state])
+        reset_incomplete_downloads(provider, manifest)
+        self.assertTrue(all(not p.exists() for p in states))
+        self.assertTrue(unrelated.exists())
+
+    def test_retry_invalidates_corrupt_depot_only_and_keeps_bytes(self):
+        from folon_downgrader.steamcmd import reset_incomplete_downloads
+        provider = SteamCmdProvider(self.root / 'backend')
+        provider.candidate_roots = lambda: [self.content]
+        states = [self.content / f'state_377160_{i}.patch' for i in (1, 2)]
+        for path in states:
+            path.write_bytes(b'completion record')
+        damaged = self.content / 'depot_1/Fallout4.exe'
+        damaged.write_bytes(b'bad exe')
+        reset_incomplete_downloads(provider, Manifest(self.manifest_path))
+        self.assertFalse(states[0].exists())
+        self.assertTrue(states[1].exists())
+        self.assertEqual(damaged.read_bytes(), b'bad exe')
+
     def test_home_screen_storage_counts_partial_downloads(self):
         from folon_downgrader.cleanup import removable_downloads
         self.assertEqual(removable_downloads(self.request)['files'], 2)
@@ -714,7 +745,8 @@ class CleanupTests(unittest.TestCase):
         from folon_downgrader.cleanup import removable_downloads
         from folon_downgrader.platforms import data_root
 
-        with patch('folon_downgrader.cli.data_root', return_value=self.root / 'appdata'):
+        with patch('folon_downgrader.cli.data_root', return_value=self.root / 'appdata'), \
+                patch('folon_downgrader.storage_settings.data_root', return_value=self.root / 'appdata'):
             args = SimpleNamespace(game_path=None, staging_root=None,
                                    steamcmd_root=None, state_root=None,
                                    manifest=self.manifest_path, content_root=None)
