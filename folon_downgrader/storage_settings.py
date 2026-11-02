@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from .platforms import data_root
+from .files import atomic_json
 
 
 def preference_file():
@@ -15,6 +16,9 @@ def preference_file():
 def load_download_root():
     try:
         saved = json.loads(preference_file().read_text(encoding='utf-8'))
+        # Accept existing unversioned preferences when upgrading.
+        if not isinstance(saved, dict) or saved.get('schema', 1) != 1:
+            return data_root() / 'steamcmd'
         value = saved.get('steamcmd_root')
         if isinstance(value, str) and value and Path(value).is_absolute():
             return Path(value)
@@ -26,11 +30,5 @@ def load_download_root():
 def save_download_root(path):
     path = Path(path).expanduser().absolute()
     config = preference_file()
-    config.parent.mkdir(parents=True, exist_ok=True)
-    temporary = config.with_suffix('.tmp')
-    try:
-        temporary.write_text(json.dumps({'steamcmd_root': str(path)}, indent=2), encoding='utf-8')
-        temporary.replace(config)
-    finally:
-        temporary.unlink(missing_ok=True)
+    atomic_json(config, {'schema': 1, 'steamcmd_root': str(path)})
     return path

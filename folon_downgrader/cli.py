@@ -95,6 +95,8 @@ def main(argv=None):
             confirmed = args.yes
             if args.action in ('deploy', 'resume', 'repair') and not confirmed and sys.stdin.isatty() and not args.json:
                 print(f'Game: {request.game}')
+                print('Existing game files will be overwritten; listed incompatible files will be removed. No backup is created.')
+                print('Steam verification or reinstall restores the Steam version. Mods/custom files may need separate care.')
                 confirmed = input('Type YES to modify this game installation: ') == 'YES'
             result = Engine(request, emit=lambda e: None if args.json else print(e.get('message', e['stage']))).run(args.action, confirmed)
     except DowngradeError as error:

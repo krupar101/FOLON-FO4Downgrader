@@ -8,6 +8,36 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 @unittest.skipUnless(importlib.util.find_spec('PyQt5'), 'Qt is optional for headless core tests')
 class GuiTests(unittest.TestCase):
+    def test_worker_shutdown_exception_emits_failure_without_secrets(self):
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Worker
+        app = QApplication.instance() or QApplication([])
+        worker = Worker(None, 'deploy', close_steam=True)
+        failures, successes = [], []
+        worker.failed.connect(failures.append)
+        worker.succeeded.connect(successes.append)
+        with patch('folon_downgrader.platforms.shutdown_steam', side_effect=RuntimeError('synthetic secret')), \
+                patch.object(worker.engine, 'run') as run:
+            worker.run()
+        run.assert_not_called()
+        self.assertFalse(successes)
+        self.assertEqual(failures[0]['error_code'], 'INTERNAL_ERROR')
+        self.assertNotIn('synthetic secret', str(failures))
+
+    def test_partial_deployment_failure_shows_steam_recovery(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
+        window.failed({'error_code': 'CANCELLED', 'message': 'Cancelled', 'game_modified': True})
+        self.assertIn('Verify integrity', window.error_banner.text())
+        self.assertIn('third-party mods', window.error_banner.text())
+        self.assertEqual(window.pages.currentIndex(), 2)
+        window.close()
+
     def test_exit_is_available_on_every_page_and_after_an_error(self):
         from PyQt5.QtWidgets import QApplication
         from folon_downgrader.qt import Window

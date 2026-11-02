@@ -4,18 +4,13 @@ def init():
 
 
 def IsWritable(path):
-    import os
-
+    import tempfile
     try:
-        f = open(path + "/FOLON-Downgrader-TestFile", "w")
-        f.write("Testing...")
-        f.close()
-        f = open(path + "/FOLON-Downgrader-TestFile", "r")
-        f.read()
-        f.close()
-        os.remove(path + "/FOLON-Downgrader-TestFile")
+        with tempfile.TemporaryFile(dir=path) as probe:
+            probe.write(b'Testing...')
+            probe.flush()
         return True
-    except:
+    except OSError:
         return False
 
 

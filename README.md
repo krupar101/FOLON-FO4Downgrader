@@ -56,7 +56,10 @@ space for downloads, any installation growth and one temporary replacement file.
 `--deploy --yes` explicitly confirms modifying the supplied `--game-path`.
 The tool does not create game backups or offer restoration. A small transaction
 record tracks progress; an interrupted downgrade can be retried using the retained
-downloads. Steam can restore the current game through its own file verification.
+downloads. If the downgrade fails after changes begin, the installation may be
+incomplete: use Steam's **Verify integrity of game files** or reinstall to restore
+the Steam version, then rerun the downgrade if wanted. Steam may not restore
+third-party mods or custom files.
 
 After a successful, verified downgrade, the GUI asks whether to remove downloaded
 game files. Keeping them is the default. Cleanup removes only inventory-listed

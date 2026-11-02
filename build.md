@@ -56,3 +56,13 @@ or offer rollback. Earlier rollback experiments describe a superseded implementa
 Before release, exercise real Steam Guard flows, interrupted downloads/deployment,
 and game launch on Windows, Linux/Proton and Steam Deck (internal and microSD
 storage). Review Windows junction handling and SteamCMD-owned logs/session files.
+
+The revised November 2026 audit reviewed the old `c53629d` implementation, not
+the shared engine in this branch. Current regression coverage includes its TAR
+traversal and writability-probe cases, missing/corrupt depots, explicit deployment
+confirmation, partial-deployment recovery messages, worker errors, setup
+cancellation, download-volume capacity and interrupted settings writes.
+Remaining limits include SteamCMD bootstrap authenticity beyond Valve HTTPS,
+path-swap races by concurrent local processes, localized/live Steam authentication,
+Windows native fault injection, dependency hash locking and release signing.
+Passing the synthetic tests does not close those items.

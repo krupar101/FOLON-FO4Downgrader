@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
 
+STEAM_RECOVERY = ('The downgrade may be incomplete. Verify integrity of game files or reinstall Fallout 4 '
+                  'through Steam to restore the Steam version, then rerun the downgrade if wanted. '
+                  'Steam may not restore third-party mods or custom files.')
+
 
 class Stage(str, Enum):
     PREFLIGHT = 'preflight'

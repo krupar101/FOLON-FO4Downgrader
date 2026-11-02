@@ -18,7 +18,7 @@ import urllib.request
 import zipfile
 
 from .errors import DowngradeError, fail
-from .files import inside, is_link
+from .files import inside, is_link, atomic_json
 from .platforms import host
 
 URLS = {
@@ -27,14 +27,17 @@ URLS = {
 }
 
 
-def extract(archive, destination, windows):
+def extract(archive, destination, windows, cancel=lambda: None):
     """Extract only regular files/directories; precheck the entire archive."""
     entries = []
     with (zipfile.ZipFile(archive) if windows else tarfile.open(archive, 'r:gz')) as source:
-        members = source.infolist() if windows else source.getmembers()
+        members = source.infolist() if windows else source
         total = 0
         seen = set()
-        for member in members:
+        for index, member in enumerate(members):
+            cancel()
+            if index >= 10000:
+                fail('UNSAFE_ARCHIVE', 'SteamCMD archive exceeds bootstrap limits.')
             name = member.filename if windows else member.name
             # Valve's tar uses a leading ./, which is benign.
             while name.startswith('./'):
@@ -57,16 +60,19 @@ def extract(archive, destination, windows):
                 fail('UNSAFE_ARCHIVE', 'Archive contains duplicate paths.')
             seen.add(name.casefold())
             total += size
-            if total > 512 * 1024 * 1024 or len(members) > 10000:
+            if total > 512 * 1024 * 1024:
                 fail('UNSAFE_ARCHIVE', 'SteamCMD archive exceeds bootstrap limits.')
             entries.append((member, target, directory))
         for member, target, directory in entries:
+            cancel()
             if directory:
                 target.mkdir(parents=True, exist_ok=True)
             else:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with (source.open(member) if windows else source.extractfile(member)) as inp, target.open('wb') as out:
-                    shutil.copyfileobj(inp, out)
+                    while chunk := inp.read(1024 * 1024):
+                        cancel()
+                        out.write(chunk)
                 if not windows:
                     target.chmod(0o700 if member.mode & 0o111 else 0o600)
 
@@ -77,7 +83,9 @@ class SteamCmdProvider:
         self.platform = platform or host()
         self.executable = inside(self.root, 'steamcmd.exe' if self.platform == 'windows' else 'steamcmd.sh')
 
-    def check(self):
+    def check(self, allow_incomplete=False):
+        if not allow_incomplete and inside(self.root, '.bootstrap-incomplete.json').exists():
+            fail('STEAMCMD_NOT_FOUND', 'SteamCMD setup was interrupted. Retry setup before downloading.')
         if not self.executable.is_file():
             fail('STEAMCMD_NOT_FOUND', f'SteamCMD executable is missing from {self.root}. Run --setup-steamcmd.')
         if self.platform == 'linux':
@@ -90,10 +98,13 @@ class SteamCmdProvider:
                 fail('LINUX_RUNTIME_MISSING', 'SteamCMD requires a 32-bit glibc loader and runtime. See Linux setup documentation.')
         return self.executable
 
-    def ensure_available(self):
-        if self.executable.is_file() and (self.platform == 'windows' or (self.root / 'linux32/steamcmd').is_file()):
+    def ensure_available(self, cancel=lambda: None):
+        cancel()
+        incomplete = inside(self.root, '.bootstrap-incomplete.json')
+        if not incomplete.exists() and self.executable.is_file() and (self.platform == 'windows' or (self.root / 'linux32/steamcmd').is_file()):
             return self.check()
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        atomic_json(incomplete, {'schema': 1})
         # Extraction in a private sibling prevents a failed archive download from marking setup complete.
         with tempfile.TemporaryDirectory(prefix='.bootstrap-', dir=self.root.parent) as tmp:
             tmp = Path(tmp)
@@ -106,24 +117,34 @@ class SteamCmdProvider:
                 with urllib.request.urlopen(URLS[self.platform], timeout=30, context=tls_context) as inp, archive.open('wb') as out:
                     count = 0
                     while chunk := inp.read(1024 * 1024):
+                        cancel()
                         count += len(chunk)
                         if count > 128 * 1024 * 1024:
                             fail('STEAMCMD_BOOTSTRAP_FAILED', 'Bootstrap download exceeded its size limit.')
                         out.write(chunk)
                 unpacked = tmp / 'unpacked'
                 unpacked.mkdir()
-                extract(archive, unpacked, self.platform == 'windows')
+                extract(archive, unpacked, self.platform == 'windows', cancel)
                 expected = unpacked / self.executable.name
                 if not expected.is_file() or (self.platform == 'linux' and not (unpacked / 'linux32/steamcmd').is_file()):
                     fail('STEAMCMD_BOOTSTRAP_FAILED', 'Valve archive is missing its expected executable.')
                 # Move only archive files, with a destination boundary check on every file.
-                for source in unpacked.rglob('*'):
+                # Publish the launcher last so interrupted setup is retried.
+                for source in sorted(unpacked.rglob('*'), key=lambda p: p == expected):
+                    cancel()
                     target = inside(self.root, source.relative_to(unpacked).as_posix())
                     if source.is_dir():
                         target.mkdir(parents=True, exist_ok=True)
                     else:
                         target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(source, target)
+                        fd, temporary = tempfile.mkstemp(prefix='.bootstrap-copy-', dir=target.parent)
+                        os.close(fd)
+                        try:
+                            shutil.copy2(source, temporary)
+                            cancel()
+                            os.replace(temporary, target)
+                        finally:
+                            Path(temporary).unlink(missing_ok=True)
             except (urllib.error.URLError, TimeoutError) as error:
                 reason = getattr(error, 'reason', error)
                 is_tls = isinstance(reason, (ssl.SSLError, ssl.CertificateError)) or 'CERTIFICATE_VERIFY_FAILED' in str(reason)
@@ -132,11 +153,35 @@ class SteamCmdProvider:
                 fail('NETWORK_ERROR', f'Unable to reach the official SteamCMD download server over HTTPS ({type(reason).__name__}). Check DNS, firewall, proxy, and network connectivity.')
             except (tarfile.TarError, zipfile.BadZipFile):
                 fail('STEAMCMD_BOOTSTRAP_FAILED', 'Invalid SteamCMD archive. Retry setup.')
-        return self.check()
+        executable = self.check(allow_incomplete=True)
+        incomplete.unlink()
+        return executable
 
     def candidate_roots(self):
         return [self.root / 'steamapps/content/app_377160',
                 self.root / 'linux32/steamapps/content/app_377160']
+
+    def check_download_space(self, manifest, cancel=lambda: None):
+        """Budget missing bytes plus one replacement file on the download volume."""
+        manifest.require_inventory()
+        relative = ('steamapps/content/app_377160' if self.platform == 'windows' else
+                    'linux32/steamapps/content/app_377160')
+        root = inside(self.root, relative)
+        volume = root
+        while not volume.exists():
+            volume = volume.parent
+        missing = largest = 0
+        for depot in manifest.depots:
+            for spec in depot['files']:
+                cancel()
+                path = inside(root, f"depot_{depot['id']}/{spec['path']}")
+                present = min(path.stat().st_size, spec['size']) if path.is_file() else 0
+                missing += spec['size'] - present
+                largest = max(largest, spec['size'])
+        required = missing + largest + 64 * 1024 * 1024
+        if shutil.disk_usage(volume).free < required:
+            fail('INSUFFICIENT_SPACE', f'Not enough free space for downloads at {root}. '
+                 f'Allow at least {required:,} bytes for missing content, temporary files and overhead.')
 
 
 def reset_incomplete_downloads(provider, manifest, cancel=lambda: None):

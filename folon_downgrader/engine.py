@@ -6,7 +6,7 @@ from pathlib import Path
 import threading
 
 from .deployment import Transaction
-from .errors import DowngradeError, Stage, fail
+from .errors import DowngradeError, Stage, fail, STEAM_RECOVERY
 from .files import Lock, inside
 from .manifest import Manifest, executable_version, verify_depots, verify_target
 from .platforms import check_not_running, data_root, host, steam_processes
@@ -149,10 +149,11 @@ class Engine:
                     return {'ok': True, 'stage': 'preflight', **report}
                 if action == 'setup-steamcmd':
                     self.event(Stage.BOOTSTRAP)
-                    SteamCmdProvider(self.request.steamcmd).ensure_available()
+                    SteamCmdProvider(self.request.steamcmd).ensure_available(self.check_cancel)
                     return {'ok': True, 'stage': 'bootstrap_steamcmd', 'game_modified': False}
                 if action == 'download':
                     self.event(Stage.DOWNLOAD)
+                    SteamCmdProvider(self.request.steamcmd).check_download_space(manifest, self.check_cancel)
                     reset_incomplete_downloads(SteamCmdProvider(self.request.steamcmd), manifest, self.check_cancel)
                     if self.ask:
                         gui_download(SteamCmdProvider(self.request.steamcmd), manifest, self.ask, self.emit, self.check_cancel)
@@ -205,6 +206,8 @@ class Engine:
                 message = 'A filesystem operation failed. Downloaded files were retained.'
             else:
                 code, message = 'INTERNAL_ERROR', 'The operation stopped unexpectedly. No subsequent stage was started.'
+            if self.game_modified:
+                message += ' ' + STEAM_RECOVERY
             result = {'ok': False, 'stage': self.stage.value, 'error_code': code, 'message': message,
                       'game_modified': self.game_modified,
                       'retry_required': self.game_modified}

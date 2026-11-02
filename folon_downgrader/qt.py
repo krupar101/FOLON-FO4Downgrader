@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QFileDialog, QFormLayout, 
 from . import __version__
 from .views import FolonPages, Resources
 from .engine import Engine
-from .errors import DowngradeError, fail
+from .errors import DowngradeError, fail, STEAM_RECOVERY
 
 
 class Worker(QThread):
@@ -44,16 +44,27 @@ class Worker(QThread):
                 pass
 
     def run(self):
-        if self.close_steam:
-            from .platforms import shutdown_steam
-            try:
+        try:
+            if self.close_steam:
+                from .platforms import shutdown_steam
                 self.progress.emit({'stage': 'steam_shutdown', 'message': 'Closing Steam…'})
                 shutdown_steam(self.engine.check_cancel, lambda message: self.progress.emit(
                     {'stage': 'steam_shutdown', 'message': message}))
-            except DowngradeError as error:
-                self.failed.emit({'ok': False, 'error_code': error.code, 'message': error.message})
-                return
-        result = self.engine.run(self.action, confirmed=True)
+            result = self.engine.run(self.action, confirmed=True)
+        except (Exception, KeyboardInterrupt) as error:
+            # Never let an exception escape a Qt worker; raw exception text may
+            # contain backend secrets. Unexpected failures cannot advance pages.
+            if isinstance(error, DowngradeError):
+                code, message = error.code, error.message
+            elif isinstance(error, (KeyboardInterrupt, InterruptedError)):
+                code, message = 'CANCELLED', 'Operation cancelled.'
+            else:
+                code, message = 'INTERNAL_ERROR', 'The worker stopped unexpectedly. No subsequent stage was started.'
+            modified = self.engine.game_modified
+            if modified:
+                message += ' ' + STEAM_RECOVERY
+            result = {'ok': False, 'error_code': code, 'message': message,
+                      'game_modified': modified, 'retry_required': modified}
         (self.succeeded if result['ok'] else self.failed).emit(result)
 
 
@@ -445,7 +456,10 @@ class Window(QWidget, FolonPages):
             return
         close_steam = False
         if action == 'deploy':
-            if QMessageBox.question(self, 'Confirm game changes', f'{action.title()}\nGame: {request.game}\nContinue?') != QMessageBox.Yes:
+            if QMessageBox.question(self, 'Confirm game changes',
+                    f'Game: {request.game}\n\nExisting game files will be overwritten and listed incompatible files removed. '
+                    'No backup is created. Steam verification or reinstall restores the Steam version; '
+                    'mods and custom files may need separate care.\n\nContinue?') != QMessageBox.Yes:
                 return
         if action == 'deploy':
             from .platforms import steam_processes
@@ -625,7 +639,7 @@ class Window(QWidget, FolonPages):
             self.pages.setCurrentIndex(3)
             self._offer_cleanup = True
         elif action == 'cleanup-downloads':
-            self.output.appendPlainText('Downloaded files removed. Fallout 4 is ready.')
+            self.output.appendPlainText('Downloaded files removed. The installed game was not changed.')
             self.pages.setCurrentIndex(0)
 
     def failed(self, result):
@@ -645,7 +659,9 @@ class Window(QWidget, FolonPages):
         elif action in ('setup-steamcmd', 'download') or code in ('AUTH_FAILED', 'STEAM_AUTH_FAILED'):
             target = 1
             self.PasswordEntry.clear()
-            guidance = 'Check your Steam credentials or approve the sign-in in the Steam app, then try again.'
+            guidance = ('Check your Steam credentials or approve the sign-in in the Steam app, then try again.'
+                        if code in ('AUTH_FAILED', 'STEAM_AUTH_FAILED', 'AUTH_DENIED', 'AUTH_PENDING', 'AUTH_UNCONFIRMED')
+                        else 'Resolve the reported setup or download problem, then retry.')
         elif action == 'verify-download' and not self.args.content_root:
             target = 1
             guidance = 'Sign in to Steam again to download missing or damaged files.'
@@ -654,10 +670,12 @@ class Window(QWidget, FolonPages):
             guidance = 'Review the error and retry the downgrade only after the underlying issue is resolved.'
         elif action == 'cleanup-downloads':
             target = 0
-            guidance = 'The downgrade succeeded, but cleanup was interrupted. Your installed game is not removed.'
+            guidance = 'Download cleanup was interrupted. Your installed game is not removed.'
         else:
             target = 0
             guidance = 'Review the selected game directory and try again.'
+        if result.get('game_modified'):
+            guidance = STEAM_RECOVERY if STEAM_RECOVERY not in message else 'Resolve the error before retrying.'
         self.pages.setCurrentIndex(target)
         self.error_banner.setText(f'Action stopped: {message}\n{guidance}')
         self.error_banner.show()
