@@ -1,6 +1,6 @@
 # Downgrader 2.0
 
-Version **2.0.0 — community fork of the Team FOLON downgrader**. The same Python/Qt application runs on Windows
+Version **2.0.0 - community fork of the Team FOLON downgrader**. The same Python/Qt application runs on Windows
 x64 and Linux x86-64, with an AppImage for Linux. It downgrades Steam Fallout 4
 to **1.10.163.0**; it does not install Fallout: London or configure Proton.
 

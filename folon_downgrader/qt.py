@@ -175,7 +175,7 @@ class Window(QWidget, FolonPages):
         self.active_step = -1
         self._last_ok = False
         footer = QHBoxLayout()
-        footer.addWidget(QLabel(__version__ + ' — community fork'))
+        footer.addWidget(QLabel(__version__ + ' - community fork'))
         footer.addStretch()
         footer.addWidget(self.action_hint)
         self.cancel = QPushButton('Cancel')

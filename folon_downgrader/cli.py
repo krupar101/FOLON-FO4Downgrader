@@ -14,7 +14,7 @@ def manifest_path():
 
 
 def parser():
-    p = argparse.ArgumentParser(description='Downgrader 2.0 — community fork — Steam Fallout 4 for Windows and Linux.')
+    p = argparse.ArgumentParser(description='Downgrader 2.0 - community fork - Steam Fallout 4 for Windows and Linux.')
     p.add_argument('--version', action='version', version=__version__)
     p.add_argument('--game-path', '--path', '-p', type=Path)
     p.add_argument('--staging-root', type=Path)
