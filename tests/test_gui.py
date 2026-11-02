@@ -265,3 +265,32 @@ class GuiTests(unittest.TestCase):
                 prompt.assert_called_once()
             window.worker = None
             window.close()
+
+
+@unittest.skipUnless(importlib.util.find_spec('PyQt5'), 'Qt is optional for headless core tests')
+class StorageLocationGuiTests(unittest.TestCase):
+    def test_restore_default_location_keeps_previous_downloads(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication, QMessageBox
+        from folon_downgrader.cli import parser
+        from folon_downgrader.qt import Window
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            custom = root / 'custom'
+            custom.mkdir()
+            saved = custom / 'keep.txt'
+            saved.write_text('retained')
+            with patch('folon_downgrader.platforms.data_root', return_value=root), \
+                 patch('folon_downgrader.storage_settings.data_root', return_value=root), \
+                 patch.object(QMessageBox, 'question', return_value=QMessageBox.Yes):
+                app = QApplication.instance() or QApplication([])
+                args = parser().parse_args([])
+                args.steamcmd_root = custom
+                window = Window(args)
+                window.restore_default_download_location()
+                self.assertEqual(window.current_download_root(), root / 'steamcmd')
+                self.assertFalse(window.storage_default.isEnabled())
+                self.assertTrue(saved.exists())
+                window.close()

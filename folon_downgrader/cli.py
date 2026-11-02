@@ -34,6 +34,11 @@ def parser():
     return p
 
 
+def effective_steamcmd_root(args):
+    from .storage_settings import load_download_root
+    return args.steamcmd_root or load_download_root()
+
+
 def make_request(args):
     base = data_root()
     game = args.game_path
@@ -43,7 +48,7 @@ def make_request(args):
             raise DowngradeError('GAME_SELECTION_REQUIRED', 'Use --discover, then select one installation with --game-path.')
         game = found[0]
     return Request(game.resolve(), (args.staging_root or base / 'staging').absolute(),
-                   (args.steamcmd_root or base / 'steamcmd').absolute(),
+                   effective_steamcmd_root(args).absolute(),
                    (args.state_root or base / 'transactions').absolute(), args.manifest.absolute(),
                    args.content_root.absolute() if args.content_root else None)
 
@@ -59,7 +64,7 @@ def make_storage_request(args):
     base = data_root()
     game = args.game_path if args.game_path is not None else base / '.storage-management-only'
     return Request(Path(game).resolve(), (args.staging_root or base / 'staging').absolute(),
-                   (args.steamcmd_root or base / 'steamcmd').absolute(),
+                   effective_steamcmd_root(args).absolute(),
                    (args.state_root or base / 'transactions').absolute(), args.manifest.absolute(),
                    args.content_root.absolute() if args.content_root else None)
 

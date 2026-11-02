@@ -4,8 +4,8 @@ from pathlib import Path
 import queue
 import sys
 
-from PyQt5.QtCore import QThread, pyqtSignal, Qt, QTimer
-from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QThread, pyqtSignal, Qt, QTimer, QUrl
+from PyQt5.QtGui import QIcon, QDesktopServices
 from PyQt5.QtWidgets import (QApplication, QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
     QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QPlainTextEdit, QProgressBar, QToolButton,
     QStackedWidget, QVBoxLayout, QWidget, QSizePolicy)
@@ -183,7 +183,7 @@ class Window(QWidget, FolonPages):
         footer.addWidget(self.cancel)
         footer.addWidget(self.SubmitButton)
         self.layout_root.addLayout(footer)
-        self.controls = (self.SubmitButton, self.InstallButton, self.PathButton, self.FindButton, self.storage_button,
+        self.controls = (self.SubmitButton, self.InstallButton, self.PathButton, self.FindButton, self.storage_button, self.storage_change, self.storage_default, self.storage_open,
                          self.game, self.UsernameEntry, self.PasswordEntry)
         resources = Path(Resources.resource_path('.'))
         style = (resources / 'FOLON.css').read_text(encoding='utf-8')
@@ -234,6 +234,84 @@ class Window(QWidget, FolonPages):
     def ChangeHiddenPassword(self):
         self.PasswordEntry.setEchoMode(QLineEdit.Password if self.PasswordCheck.isChecked() else QLineEdit.Normal)
 
+    def current_download_root(self):
+        from .cli import effective_steamcmd_root
+        return effective_steamcmd_root(self.args)
+
+    def change_download_location(self):
+        from .storage_settings import save_download_root
+        if self.worker and self.worker.isRunning():
+            return
+        selected = QFileDialog.getExistingDirectory(
+            self, 'Choose download storage folder', str(self.current_download_root().parent),
+            QFileDialog.ShowDirsOnly | QFileDialog.DontUseNativeDialog)
+        if not selected:
+            return
+        new_root = Path(selected).absolute()
+        old_root = self.current_download_root().absolute()
+        if new_root == old_root:
+            return
+        # Prevent selecting installation or our internal state directories.
+        from .platforms import data_root
+        protected = [data_root() / 'staging', data_root() / 'transactions']
+        if self.game.text().strip():
+            protected.append(Path(self.game.text().strip()))
+        if any(new_root.is_relative_to(p.absolute()) or p.absolute().is_relative_to(new_root)
+               for p in protected):
+            QMessageBox.warning(self, 'Invalid download folder',
+                'Choose a separate folder outside the game installation and application state folders.')
+            return
+        if QMessageBox.question(self, 'Change download location?',
+                f'Use this folder for future SteamCMD downloads?\n\n{new_root}\n\n'
+                'Previously downloaded depots will stay in the old location. '
+                'Select that folder again to reuse or remove them.',
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return
+        try:
+            save_download_root(new_root)
+            self.args.steamcmd_root = new_root
+        except OSError as error:
+            QMessageBox.warning(self, 'Cannot save download location', str(error))
+            return
+        self.verified_cache.clear()
+        self.refresh_storage_status()
+
+    def restore_default_download_location(self):
+        from .platforms import data_root
+        from .storage_settings import save_download_root
+        if self.worker and self.worker.isRunning():
+            return
+        default_root = data_root() / 'steamcmd'
+        if self.current_download_root().absolute() == default_root.absolute():
+            return
+        if QMessageBox.question(
+                self, 'Restore default download location?',
+                f'Use the default depot download location?\n\n{default_root}\n\n'
+                'Downloads in the previous location will stay there.',
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return
+        try:
+            save_download_root(default_root)
+            self.args.steamcmd_root = default_root
+        except OSError as error:
+            QMessageBox.warning(self, 'Cannot restore download location', str(error))
+            return
+        self.verified_cache.clear()
+        self.refresh_storage_status()
+
+    def open_download_location(self):
+        root = self.current_download_root()
+        # Open the actual depot directory when it exists, otherwise the managed root.
+        from .steamcmd import SteamCmdProvider
+        folders = [p for p in SteamCmdProvider(root).candidate_roots() if p.is_dir()]
+        target = folders[0] if folders else root
+        if not target.is_dir():
+            QMessageBox.information(self, 'Download folder',
+                f'No download folder has been created yet.\n\nSelected location: {root}')
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
+            QMessageBox.warning(self, 'Cannot open folder', f'Open the download folder manually:\n{target}')
+
     def _storage_request(self):
         from .cli import make_storage_request
         # Saved depots belong to the application, not a particular selected
@@ -248,6 +326,12 @@ class Window(QWidget, FolonPages):
             usage = removable_downloads(request) if request else {'bytes': 0, 'files': 0}
         except (OSError, DowngradeError):
             usage = {'bytes': 0, 'files': 0}
+        self.storage_path.setText(str(self.current_download_root()))
+        from .platforms import data_root
+        self.storage_default.setEnabled(
+            self.current_download_root().absolute() != (data_root() / 'steamcmd').absolute()
+            and not (self.worker and self.worker.isRunning()))
+        self.storage_path.setToolTip(str(self.current_download_root()))
         count = usage['files']
         self.storage_button.setEnabled(bool(count) and not (self.worker and self.worker.isRunning()))
         if count:
