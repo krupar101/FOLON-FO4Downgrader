@@ -218,7 +218,7 @@ class GuiTests(unittest.TestCase):
         from folon_downgrader.cli import parser
         app = QApplication.instance() or QApplication([])
         window = Window(parser().parse_args([]))
-        window.worker = SimpleNamespace(action='download')
+        window.worker = SimpleNamespace(action='download', isRunning=lambda: False)
         window.UsernameEntry.setText('sample_user')
         window.PasswordEntry.setText('sample_password')
         window.start_activity('download')
@@ -243,7 +243,7 @@ class GuiTests(unittest.TestCase):
         from folon_downgrader.cli import parser
         app = QApplication.instance() or QApplication([])
         window = Window(parser().parse_args([]))
-        window.worker = SimpleNamespace(action='deploy')
+        window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
         window.failed({'error_code': 'DEPLOY_INTERRUPTED', 'message': 'Write interrupted'})
         window.reset()
         self.assertEqual(window.pages.currentIndex(), 2)
@@ -293,7 +293,7 @@ class GuiTests(unittest.TestCase):
         app = QApplication.instance() or QApplication([])
         for answer in (QMessageBox.No, QMessageBox.Yes):
             window = Window(parser().parse_args([]))
-            window.worker = SimpleNamespace(action='deploy')
+            window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
             window.succeeded({'ok': True})
             with patch.object(QMessageBox, 'question', return_value=answer) as prompt, patch.object(window, 'run') as run:
                 window.reset()
