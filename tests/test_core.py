@@ -788,3 +788,43 @@ class CleanupTests(unittest.TestCase):
         self.assertEqual(engine.run('cleanup-downloads', True)['error_code'], 'CANCELLED')
         self.assertEqual(installed, self.snapshot())
         self.assertTrue((self.content/'depot_1/Fallout4.exe').exists())
+
+
+class FolderOpenerTests(unittest.TestCase):
+    def test_appimage_launcher_environment_removes_bundled_library_paths(self):
+        from folon_downgrader.folder_opener import desktop_environment
+        env = desktop_environment({
+            'APPIMAGE': '/tmp/downgrader.AppImage',
+            'LD_LIBRARY_PATH': '/tmp/appimage/usr/_internal',
+            'LD_LIBRARY_PATH_ORIG': '/usr/local/lib',
+            'QT_QPA_PLATFORM_PLUGIN_PATH': '/tmp/appimage/qt/plugins',
+            'XDG_DATA_DIRS': '/tmp/appimage/share:/usr/share',
+            'DISPLAY': ':0',
+        })
+        self.assertEqual(env['LD_LIBRARY_PATH'], '/usr/local/lib')
+        self.assertNotIn('QT_QPA_PLATFORM_PLUGIN_PATH', env)
+        self.assertEqual(env['XDG_DATA_DIRS'], '/usr/local/share:/usr/share')
+        self.assertEqual(env['DISPLAY'], ':0')
+
+    def test_linux_opener_uses_host_launcher_with_clean_environment(self):
+        from folon_downgrader.folder_opener import open_linux_folder
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        calls = []
+        with TemporaryDirectory() as directory, patch.dict(os.environ, {
+            'APPIMAGE': '/tmp/test.AppImage',
+            'QT_QPA_PLATFORM_PLUGIN_PATH': '/tmp/appimage/plugins',
+        }):
+            result = open_linux_folder(directory,
+                which=lambda name: '/usr/bin/xdg-open' if name == 'xdg-open' else None,
+                launch=lambda argv, **kwargs: calls.append((argv, kwargs)))
+        self.assertTrue(result)
+        self.assertEqual(calls[0][0][0], '/usr/bin/xdg-open')
+        self.assertNotIn('QT_QPA_PLATFORM_PLUGIN_PATH', calls[0][1]['env'])
+
+    def test_linux_opener_does_not_launch_for_nonexistent_folder(self):
+        from folon_downgrader.folder_opener import open_linux_folder
+        from unittest.mock import Mock
+        launcher = Mock()
+        self.assertFalse(open_linux_folder('/this/folder/should/not/exist', launch=launcher))
+        launcher.assert_not_called()

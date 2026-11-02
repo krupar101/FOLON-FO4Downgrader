@@ -309,7 +309,12 @@ class Window(QWidget, FolonPages):
             QMessageBox.information(self, 'Download folder',
                 f'No download folder has been created yet.\n\nSelected location: {root}')
             return
-        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
+        if sys.platform.startswith('linux'):
+            from .folder_opener import open_linux_folder
+            opened = open_linux_folder(target)
+        else:
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+        if not opened:
             QMessageBox.warning(self, 'Cannot open folder', f'Open the download folder manually:\n{target}')
 
     def _storage_request(self):
