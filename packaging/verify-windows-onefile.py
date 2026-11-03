@@ -16,4 +16,12 @@ unexpected = [item.name for item in folder.iterdir() if item.is_dir()]
 if unexpected:
     raise SystemExit(f'ERROR: dist contains folders (possible one-folder build): {unexpected}')
 
+required = [b'winpty\\conpty.dll', b'winpty\\OpenConsole.exe', b'winpty\\winpty-agent.exe',
+            b'winpty\\winpty.dll']
+for executable in expected:
+    data = executable.read_bytes()
+    missing = [name.decode() for name in required if name not in data]
+    if missing:
+        raise SystemExit(f'ERROR: {executable.name} lacks ConPTY components: {missing}')
+
 print('Verified: two EXE files and no external dependency folders in dist.')

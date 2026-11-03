@@ -4,8 +4,20 @@ import sys
 from PyInstaller.utils.hooks import collect_data_files
 
 is_windows = sys.platform == 'win32'
+
+winpty_binaries = []
+if is_windows:
+    # pywinpty's sideloaded ConPTY (conpty.dll) needs OpenConsole.exe next to it;
+    # PyInstaller only auto-collects the DLLs/.pyd, so without these the packaged
+    # app cannot open the hidden console SteamCMD runs in and silently stalls.
+    import os
+    import winpty
+    winpty_dir = os.path.dirname(winpty.__file__)
+    for helper in ('OpenConsole.exe', 'winpty-agent.exe'):
+        winpty_binaries.append((os.path.join(winpty_dir, helper), 'winpty'))
+
 a = Analysis(
-    ['FOLON-Downgrader.py'], pathex=[], binaries=[],
+    ['FOLON-Downgrader.py'], pathex=[], binaries=winpty_binaries,
     datas=collect_data_files('certifi') + [('FOLON.css', '.'), ('img/FOLON256.png', 'img'),
            ('img/FOLONBackground.png', 'img'), ('img/check.svg', 'img'),
            ('img/folder.svg', 'img'), ('img/alert.svg', 'img'),
