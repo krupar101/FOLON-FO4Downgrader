@@ -113,7 +113,7 @@ class Window(QWidget, FolonPages):
         self.activity_detail.setWordWrap(True)
         self.activity_detail.setObjectName('ActivityDetail')
         activity_layout.addWidget(self.activity_detail)
-        self.mobile_help = QLabel('Check your Steam mobile app for a sign-in approval request. If a code is needed, an input will appear here. No confirmation is required in the downgrader for mobile approval.')
+        self.mobile_help = QLabel('Check your Steam mobile app for a sign-in approval request and approve it. The request can take a few moments to arrive. If a code is needed, an input will appear here. No confirmation is required in the downgrader for mobile approval.')
         self.mobile_help.setObjectName('MobileApprovalHelp')
         self.mobile_help.setWordWrap(True)
         self.mobile_help.hide()
@@ -605,6 +605,14 @@ class Window(QWidget, FolonPages):
                     self.active_step = i
                     break
             self.render_steps()
+            if 'percent' in event:
+                # SteamCMD download progress: fill the bar; the log only gets milestones.
+                self.activity_bar.setRange(0, 100)
+                self.activity_bar.setValue(int(event['percent']))
+                if event['percent'] % 25:
+                    return
+            else:
+                self.activity_bar.setRange(0, 0)
         self.output.appendPlainText(message)
 
     def finish_activity(self, ok, message):

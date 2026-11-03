@@ -373,6 +373,10 @@ for attempt in range(2):
             return popen(args, **kwargs)
 
         self.enterContext(patch('folon_downgrader.steamcmd.subprocess.Popen', side_effect=launch))
+        # These fixtures exercise the pipe transport; ConPTY has its own test below.
+        from folon_downgrader import steamcmd
+        self.enterContext(patch('folon_downgrader.steamcmd.open_session',
+                                lambda executable, cwd, use_conpty=None: steamcmd._PipeSession(executable, cwd)))
 
     def test_pipe_auth_download_and_secret_output_is_not_emitted(self):
         from folon_downgrader.steamcmd import gui_download
@@ -442,6 +446,69 @@ assert input() == 'quit'
                          events.append, timeout=5)
             self.assertTrue(any('Refreshing' in e.get('message', '') for e in events))
             self.assertEqual(events[-1]['stage'], 'download')
+
+    @unittest.skipUnless(sys.platform == 'win32', 'ConPTY is Windows-only')
+    def test_conpty_session_shows_prompt_and_reports_progress(self):
+        from folon_downgrader.steamcmd import gui_download
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            script = root / 'fake.py'
+            script.write_text(r'''
+import sys
+print('Steam>', flush=True)
+assert input() == 'logout'
+print('Steam>', flush=True)
+assert input() == 'clear_credentials'
+print('Steam>', flush=True)
+assert input() == 'login example_user'
+print('password:', flush=True)
+assert input() == 'pw'
+print('Waiting for user info...OK', flush=True)
+print('Steam>', flush=True)
+assert input() == 'download_depot 377160 1 100'
+print(chr(27) + '[0m Update state (0x61) downloading, progress: 42.50 (425 / 1000)', flush=True)
+print('Depot download complete', flush=True)
+print('Steam>', flush=True)
+assert input() == 'quit'
+''')
+            provider = SteamCmdProvider(root, 'windows')
+            provider.check = lambda: Path(sys.executable)
+            events = []
+            from winpty import PtyProcess
+            spawn = PtyProcess.spawn
+            with patch.object(PtyProcess, 'spawn', lambda argv, **kw: spawn([sys.executable, str(script)], **kw)):
+                gui_download(provider, type('M', (), {'depots': [{'id': 1, 'manifest': '100'}]})(),
+                             lambda kind: 'example_user' if kind == 'username' else 'pw',
+                             events.append, timeout=30, use_conpty=True)
+            self.assertIn(42, [e.get('percent') for e in events])
+
+    def test_mobile_approval_timeout_has_specific_message(self):
+        from folon_downgrader.steamcmd import gui_download
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            script = root / 'fake'
+            script.write_text('''
+import sys
+print('Steam>', flush=True)
+assert input() == 'logout'
+print('Steam>', flush=True)
+assert input() == 'clear_credentials'
+print('Steam>', flush=True)
+assert input() == 'login example_user'
+print('Please confirm the login in the Steam Mobile app on your phone.', flush=True)
+print('Waiting for confirmation...', flush=True)
+print('ERROR (Timeout)', flush=True)
+print('Steam>', flush=True)
+sys.stdin.readline()
+''')
+            self.use_python_child(script)
+            provider = SteamCmdProvider(root, 'linux')
+            provider.check = lambda: script
+            with self.assertRaises(DowngradeError) as caught:
+                gui_download(provider, type('M', (), {'depots': [{'id': 1, 'manifest': '100'}]})(),
+                             lambda kind: 'example_user', lambda event: None, timeout=10)
+            self.assertEqual(caught.exception.code, 'AUTH_PENDING')
+            self.assertIn('timed out waiting for your approval', str(caught.exception))
 
     def test_persistent_cached_login_stops_without_downloading(self):
         from folon_downgrader.steamcmd import gui_download

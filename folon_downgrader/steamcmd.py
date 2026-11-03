@@ -4,6 +4,7 @@ Passwords and Guard codes are entered directly into SteamCMD, not into this app.
 Backend-owned cache/log confidentiality still requires native-platform review.
 """
 import os
+import re
 from pathlib import Path
 import shutil
 import ssl
@@ -307,7 +308,92 @@ def interactive_download(provider, manifest, cancel=lambda: None, timeout=24*60*
         stop_process(process)
 
 
-def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*60*60):
+class _PipeSession:
+    """SteamCMD over stdin/stdout pipes (Linux; also used by tests)."""
+
+    def __init__(self, executable, cwd):
+        self.process = subprocess.Popen([str(executable)], cwd=cwd, stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            start_new_session=os.name != 'nt',
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
+
+    def read(self):
+        return self.process.stdout.read1(4096)
+
+    def write(self, value):
+        self.process.stdin.write((value + '\n').encode('utf-8'))
+        self.process.stdin.flush()
+
+    def poll(self):
+        return self.process.poll()
+
+    def stop(self):
+        stop_process(self.process)
+
+    def close(self):
+        self.process.stdin.close()
+        self.process.stdout.close()
+
+
+class _ConPtySession:
+    """SteamCMD inside a Windows pseudo-console (ConPTY).
+
+    steamcmd.exe only flushes its ``Steam>`` prompt when attached to a console,
+    so piped stdout never shows it. A hidden ConPTY gives it a console while the
+    app still owns all input and output; the user never sees a terminal.
+    """
+
+    def __init__(self, executable, cwd):
+        from winpty import PtyProcess
+        self.process = PtyProcess.spawn([str(executable)], cwd=str(cwd), dimensions=(50, 300))
+
+    def read(self):
+        try:
+            return self.process.read(4096).encode('utf-8')
+        except (EOFError, OSError):
+            # The pseudo-console closed (SteamCMD exited or was stopped).
+            return b''
+
+    def write(self, value):
+        self.process.write(value + '\r')
+
+    def poll(self):
+        if self.process.isalive():
+            return None
+        return self.process.exitstatus or 0
+
+    def stop(self):
+        if self.process.isalive():
+            subprocess.run(['taskkill', '/PID', str(self.process.pid), '/T', '/F'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            self.process.close(force=True)
+        except Exception:
+            pass
+
+    def close(self):
+        pass
+
+
+def open_session(executable, cwd, use_conpty=None):
+    """Pick the console transport: ConPTY on Windows, pipes elsewhere."""
+    if use_conpty is None:
+        use_conpty = os.name == 'nt'
+    if use_conpty:
+        try:
+            return _ConPtySession(executable, cwd)
+        except ImportError:
+            fail('STEAMCMD_BOOTSTRAP_FAILED', 'The Windows console component (pywinpty) is missing. Reinstall the downgrader.')
+    return _PipeSession(executable, cwd)
+
+
+# CSI/OSC terminal sequences emitted by a pseudo-console (colours, cursor, title).
+ANSI = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\^_]')
+# "Update state (0x61) downloading, progress: 12.34 (1234 / 56789)"
+PROGRESS = re.compile(r'progress:\s*(\d{1,3})(?:\.\d+)?\s*\(')
+
+
+def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*60*60, use_conpty=None):
     """Pipe-based GUI spike. Only fixed status messages cross the UI boundary.
 
     ask(kind) must run its dialog on the GUI thread. Raw backend output is neither
@@ -318,20 +404,21 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
     import threading
     executable = provider.check()
     username = ask('username')
+    # Opt-in diagnostics: FOLON_TRACE_STEAMCMD=<file>. Credentials are redacted.
+    secrets = [username] if username else []
+    trace = (open(os.environ['FOLON_TRACE_STEAMCMD'], 'a', encoding='utf-8')
+             if os.environ.get('FOLON_TRACE_STEAMCMD') else None)
     if not re.fullmatch(r'[A-Za-z0-9_]+', username or ''):
         fail('AUTH_DENIED', 'Enter a Steam account name containing letters, digits or underscores.')
     try:
-        process = subprocess.Popen([str(executable)], cwd=provider.root, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            start_new_session=os.name != 'nt',
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
+        process = open_session(executable, provider.root, use_conpty)
     except FileNotFoundError:
         fail('STEAMCMD_NOT_FOUND', 'SteamCMD or its runtime loader is missing. Retry setup.')
     chunks = queue.Queue(maxsize=128)
     stopped = threading.Event()
     def reader():
         while not stopped.is_set():
-            chunk = process.stdout.read1(4096)
+            chunk = process.read()
             if not chunk:
                 break
             while not stopped.is_set():
@@ -345,8 +432,7 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
     def send(value):
         if any(c in value for c in ('\r', '\n', '\x00')):
             fail('AUTH_DENIED', 'Steam input cannot contain line breaks or NUL characters.')
-        process.stdin.write((value + '\n').encode('utf-8'))
-        process.stdin.flush()
+        process.write(value)
     buffer = ''
     phase = 'startup'
     depot_index = 0
@@ -355,6 +441,7 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
     session_retry_count = 0
     mobile_approval_notified = False
     downloaded = False
+    last_percent = -1
     started = time.monotonic()
     phase_started = started
     try:
@@ -370,7 +457,14 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                 if process.poll() is not None:
                     break
                 continue
-            buffer = (buffer + re.sub(r'\x1b\[[0-9;]*m', '', raw.decode('utf-8', errors='replace')))[-16384:]
+            text = ANSI.sub('', raw.decode('utf-8', errors='replace'))
+            if trace:
+                line = text
+                for hidden in secrets:
+                    line = line.replace(hidden, '***')
+                trace.write(f'[{phase}] {line!r}\n')
+                trace.flush()
+            buffer = (buffer + text)[-16384:]
             lower = buffer.lower()
             code = classify(0, buffer)
             if code and code != 'AUTH_PENDING':
@@ -400,9 +494,14 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                 emit({'stage': 'authenticate', 'auth_state': 'waiting', 'message': 'Signing in to Steam…'})
                 continue
             if phase == 'login':
+                if 'timed out waiting for confirmation' in lower or 'error (timeout)' in lower:
+                    fail('AUTH_PENDING', 'Steam timed out waiting for your approval. Wait a minute, then try again and '
+                         'approve the newest sign-in request in the Steam mobile app. Avoid retrying repeatedly: '
+                         'each attempt queues another request. Game files were not modified.')
                 if 'password:' in lower or 'password: ' in lower:
                     password_requested = True
                     secret = ask('password')
+                    secrets.append(secret)
                     send(secret)
                     secret = ''
                     buffer = ''
@@ -410,6 +509,7 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                     continue
                 if ('code:' in lower or 'code from' in lower or 'enter the current code' in lower):
                     secret = ask('steam_guard')
+                    secrets.append(secret)
                     send(secret)
                     secret = ''
                     buffer = ''
@@ -444,13 +544,19 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                     emit({'stage': 'download', 'message': f"Downloading depot {depot['id']} ({depot_index + 1}/{len(manifest.depots)})"})
                     continue
             if phase == 'download':
+                found = PROGRESS.findall(buffer)
+                if found and int(found[-1]) != last_percent and int(found[-1]) <= 100:
+                    last_percent = int(found[-1])
+                    emit({'stage': 'download', 'percent': last_percent, 'depot': depot_index + 1,
+                          'depots': len(manifest.depots),
+                          'message': f"Downloading depot {manifest.depots[depot_index]['id']} ({depot_index + 1}/{len(manifest.depots)}): {last_percent}%"})
                 if 'depot download complete' in lower:
                     downloaded = True
                 if 'Steam>' in buffer:
                     if not downloaded:
                         fail('DEPOT_DOWNLOAD_FAILED', 'SteamCMD did not confirm completion of the current depot.')
                     depot_index += 1
-                    buffer, downloaded = '', False
+                    buffer, downloaded, last_percent = '', False, -1
                     if depot_index == len(manifest.depots):
                         send('quit')
                         phase = 'quit'
@@ -458,11 +564,12 @@ def gui_download(provider, manifest, ask, emit, cancel=lambda: None, timeout=24*
                         depot = manifest.depots[depot_index]
                         send(f"download_depot 377160 {depot['id']} {depot['manifest']}")
                         emit({'stage': 'download', 'message': f"Downloading depot {depot['id']} ({depot_index + 1}/{len(manifest.depots)})"})
-        if process.returncode or phase != 'quit':
+        if process.poll() or phase != 'quit':
             fail('DEPOT_DOWNLOAD_FAILED', 'SteamCMD exited before all required downloads completed.')
     finally:
         stopped.set()
-        stop_process(process)
+        if trace:
+            trace.close()
+        process.stop()
         thread.join(timeout=5)
-        process.stdin.close()
-        process.stdout.close()
+        process.close()
