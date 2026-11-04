@@ -425,7 +425,7 @@ class GuiTests(unittest.TestCase):
             window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
             window.succeeded({'ok': True})
             with patch.object(window, '_ask', return_value=answer) as prompt, \
-                    patch.object(window, '_offer_update_protection'), patch.object(window, 'run') as run:
+                    patch.object(window, '_offer_update_protection'), patch.object(window, 'run', return_value=False) as run:
                 window.reset()
                 prompt.assert_called_once()
                 if answer:
@@ -438,6 +438,40 @@ class GuiTests(unittest.TestCase):
                 prompt.assert_called_once()
             window.worker = None
             window.close()
+
+    def test_fast_cleanup_waits_for_completion_before_advancing(self):
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        for success in (True, False):
+            with self.subTest(success=success):
+                window = Window(parser().parse_args([]))
+                window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
+                window.succeeded({'ok': True})
+                window.worker = SimpleNamespace(action='cleanup-downloads', isRunning=lambda: False)
+                with patch.object(window, '_ask', return_value=True), \
+                        patch.object(window, 'run', return_value=True) as run, \
+                        patch.object(window, '_offer_update_protection') as offer, \
+                        patch.object(window, '_show_summary', wraps=window._show_summary) as summary, \
+                        patch('folon_downgrader.update_protection.status', return_value=True):
+                    window.reset()
+                    run.assert_called_once_with('cleanup-downloads')
+                    offer.assert_not_called()
+                    summary.assert_not_called()
+                    self.assertNotEqual(window.pages.currentIndex(), 3)
+                    if success:
+                        window.succeeded({'ok': True})
+                    else:
+                        window.failed({'error_code': 'CLEANUP_FAILED', 'message': 'locked'})
+                    window.reset()
+                    offer.assert_called_once()
+                    summary.assert_called_once()
+                    self.assertEqual(window.pages.currentIndex(), 3)
+                    self.assertEqual(window.summary_values['removed'].text(), 'Yes' if success else 'No')
+                window.worker = None
+                window.close()
 
     def test_post_downgrade_workflow_ends_on_summary_with_actual_results(self):
         from unittest.mock import patch
