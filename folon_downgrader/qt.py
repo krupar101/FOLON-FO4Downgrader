@@ -91,6 +91,9 @@ class Window(QWidget, FolonPages):
         self._exit_requested = False
         self.action_hint = self._hint_label('')
         self.verified_cache = {}
+        # Post-downgrade workflow: remaining steps (None = not running) and results.
+        self._post_steps = None
+        self._summary = {}
         self.TabIndex = 1
         self.setObjectName('centralWidget')
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -203,7 +206,7 @@ class Window(QWidget, FolonPages):
         footer.addWidget(self.SubmitButton)
         self.layout_root.addLayout(footer)
         self.controls = (self.SubmitButton, self.InstallButton, self.PathButton, self.FindButton, self.storage_button, self.storage_change, self.storage_default, self.storage_open,
-                         self.game, self.UsernameEntry, self.PasswordEntry)
+                         self.updates_button, self.game, self.UsernameEntry, self.PasswordEntry)
         resources = Path(Resources.resource_path('.'))
         style = (resources / 'FOLON.css').read_text(encoding='utf-8')
         style = style.replace('FOLON-Downgrader-Files/FOLONBackground.png', (resources / 'img/FOLONBackground.png').as_posix())
@@ -388,6 +391,61 @@ class Window(QWidget, FolonPages):
             self.storage_status.setText(f'Saved Fallout 4 depots: {size:.1f} {unit} ({count} files)')
         else:
             self.storage_status.setText('No saved Fallout 4 depots available to remove.')
+        self.refresh_updates_status()
+
+    @staticmethod
+    def _set_state(label, text, state):
+        label.setText(text)
+        label.setProperty('state', state)
+        label.style().unpolish(label)
+        label.style().polish(label)
+
+    def _manifest(self):
+        from .update_protection import manifest_path
+        text = self.game.text().strip()
+        return manifest_path(text) if text else None
+
+    def refresh_updates_status(self, *_):
+        from .update_protection import status
+        current = status(self._manifest())
+        text, state = {True: ('Yes', 'yes'), False: ('No', 'no'), None: ('Unknown', 'unknown')}[current]
+        self._set_state(self.updates_status, text, state)
+        self.updates_button.setText('Enable updates' if current else 'Disable updates')
+        self.updates_button.setEnabled(current is not None and not (self.worker and self.worker.isRunning()))
+        self.updates_status.setToolTip(
+            '' if current is not None else
+            'The Fallout 4 Steam manifest was not found or its attributes could not be read.')
+        return current
+
+    def toggle_updates(self):
+        from .update_protection import requires_authentication, set_disabled
+        current = self.refresh_updates_status()
+        if current is None:
+            return
+        if requires_authentication() and not self._ask(
+                'Administrator privileges required',
+                'Administrator privileges are required to change update protection. '
+                'You will be prompted to authenticate.',
+                f'Do you want to {"enable" if current else "disable"} updates for Fallout 4?',
+                'Yes, continue', 'No'):
+            return
+        ok, message = set_disabled(self._manifest(), not current)
+        if not ok:
+            QMessageBox.warning(self, 'Could not change update protection', message)
+        self.refresh_updates_status()
+
+    def _ask(self, title, explanation, question, yes, no):
+        """Explanation, one question, explicit decision buttons. Defaults to the safe 'no'."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(title)
+        box.setText(f'{explanation}\n\n{question}')
+        yes_button = box.addButton(yes, QMessageBox.YesRole)
+        no_button = box.addButton(no, QMessageBox.NoRole)
+        box.setDefaultButton(no_button)
+        box.setEscapeButton(no_button)
+        box.exec_()
+        return box.clickedButton() is yes_button
 
     def remove_saved_downloads(self):
         from .cleanup import removable_downloads
@@ -464,7 +522,10 @@ class Window(QWidget, FolonPages):
         if action == 'deploy':
             from .platforms import steam_processes
             if steam_processes():
-                if QMessageBox.question(self, 'Close Steam', 'Steam must close before changing game files. Close Steam now?') != QMessageBox.Yes:
+                if not self._ask('Close Steam',
+                        "Steam must be closed before the downgrader can safely replace Fallout 4's game files.",
+                        'Do you want to close Steam now?',
+                        'Yes, close Steam', 'Abort downgrade'):
                     return
                 close_steam = True
         self.error_banner.hide()
@@ -644,11 +705,15 @@ class Window(QWidget, FolonPages):
         elif action in ('download', 'verify-download'):
             self.pages.setCurrentIndex(2)
         elif action == 'deploy':
-            self.pages.setCurrentIndex(3)
-            self._offer_cleanup = True
+            # Stay on the current page; reset() drives the questions, then the summary.
+            self._summary = {'downgrade': True, 'removed': False, 'updates': None}
+            self._post_steps = ['cleanup', 'updates']
         elif action == 'cleanup-downloads':
             self.output.appendPlainText('Downloaded files removed. The installed game was not changed.')
-            self.pages.setCurrentIndex(0)
+            if self._post_steps is not None:
+                self._summary['removed'] = True
+            else:
+                self.pages.setCurrentIndex(0)
 
     def failed(self, result):
         self._last_ok = False
@@ -657,6 +722,10 @@ class Window(QWidget, FolonPages):
         code = result.get('error_code', 'UNKNOWN_ERROR')
         message = result.get('message', 'The operation could not finish.')
         self.output.appendPlainText(f'{code}: {message}')
+        if action == 'cleanup-downloads' and self._post_steps is not None:
+            # The downgrade itself succeeded; a failed cleanup must not derail the workflow.
+            self._summary['removed'] = False
+            return
         # Always return to a usable wizard page after an interrupted operation.
         # In particular, SteamCMD login failures must not leave the progress
         # panel stacked above the login form.
@@ -688,12 +757,12 @@ class Window(QWidget, FolonPages):
         self.error_banner.setText(f'Action stopped: {message}\n{guidance}')
         self.error_banner.show()
         self._next_action = None
-        self._offer_cleanup = False
+        self._post_steps = None
 
     def reset(self):
         if self._exit_requested:
             self._next_action = None
-            self._offer_cleanup = False
+            self._post_steps = None
             self.close()
             return
         completed_action = self.worker.action if self.worker else None
@@ -708,26 +777,76 @@ class Window(QWidget, FolonPages):
         self.activity.hide()
         self.log_toggle.setChecked(False)
         self.refresh_storage_status()
-        index = self.pages.currentIndex()
-        self.SubmitButton.setText(['Continue', 'Login to Steam', 'Continue', 'Finish'][index])
-        self.SubmitButton.setVisible(index != 2)
-        self._update_primary_action()
-        if getattr(self, '_offer_cleanup', False):
-            self._offer_cleanup = False
-            answer = QMessageBox.question(
-                self, 'Remove downloaded files?',
-                'Fallout 4 was downgraded and verified successfully.\n\n'
-                'Remove the downloaded game files to free disk space? '
-                'You would need to download them again for another downgrade.\n\n'
-                'Your installed game will not be removed.',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if answer == QMessageBox.Yes:
-                self.run('cleanup-downloads')
+        self._sync_page_chrome()
+        if self._post_steps is not None:
+            self._advance_post_workflow()
             return
         if getattr(self, '_next_action', None):
             action = self._next_action
             self._next_action = None
             self.run(action)
+
+    def _sync_page_chrome(self):
+        index = self.pages.currentIndex()
+        self.SubmitButton.setText(['Continue', 'Login to Steam', 'Continue', 'Finish'][index])
+        self.SubmitButton.setVisible(index != 2)
+        self._update_primary_action()
+
+    def _advance_post_workflow(self):
+        """The only place that decides what follows a successful downgrade.
+
+        Dialog answers only record results here; every path ends at the summary.
+        """
+        while self._post_steps:
+            step = self._post_steps.pop(0)
+            if step == 'cleanup':
+                if self._ask(
+                        'Remove downloaded files',
+                        'The downloaded downgrade files are no longer needed. You can remove them to free '
+                        'disk space or keep them to downgrade Fallout 4 again without downloading them.',
+                        'Do you want to remove the downloaded files?',
+                        'Yes, remove files', 'No, keep files'):
+                    self.run('cleanup-downloads')
+                    if self.worker and self.worker.isRunning():
+                        return  # reset() resumes the workflow when the worker finishes
+            elif step == 'updates':
+                self._offer_update_protection()
+        self._post_steps = None
+        self._show_summary()
+
+    def _offer_update_protection(self):
+        from .update_protection import requires_authentication, set_disabled
+        if self.refresh_updates_status() is not False:
+            return  # already disabled, or unknown (cannot be changed safely)
+        question = 'Do you want to disable updates for Fallout 4?'
+        if requires_authentication():
+            question = ('Administrator privileges are required to disable updates. '
+                        'You will be prompted to authenticate.\n\n' + question)
+        if self._ask('Protect your downgraded game',
+                     'Fallout 4 updates are still enabled. Steam may update the game at any time, '
+                     'replacing the downgraded files and making Fallout: London incompatible.',
+                     question, 'Yes, disable updates', 'No, leave enabled'):
+            ok, message = set_disabled(self._manifest(), True)
+            if not ok:
+                QMessageBox.warning(self, 'Could not disable updates',
+                                    message + '\n\nYou can try again later from the first screen.')
+            self.refresh_updates_status()
+
+    def _show_summary(self):
+        from .update_protection import status
+        summary = self._summary
+        yes_no = lambda value: ('Yes', 'yes') if value else ('No', 'no')
+        self._set_state(self.summary_values['downgrade'], *yes_no(summary.get('downgrade')))
+        # Keeping the downloads is a valid choice, so "No" is neutral, not an error.
+        removed = summary.get('removed')
+        self._set_state(self.summary_values['removed'], 'Yes' if removed else 'No',
+                        'yes' if removed else 'neutral')
+        current = status(self._manifest())
+        text, state = {True: ('Yes', 'yes'), False: ('No', 'no'), None: ('Unknown', 'unknown')}[current]
+        self._set_state(self.summary_values['updates'], text, state)
+        self.error_banner.hide()
+        self.pages.setCurrentIndex(3)
+        self._sync_page_chrome()
 
     def cancel_work(self):
         if self.worker:
@@ -737,7 +856,7 @@ class Window(QWidget, FolonPages):
         if self.worker and self.worker.isRunning():
             self._exit_requested = True
             self._next_action = None
-            self._offer_cleanup = False
+            self._post_steps = None
             self.cancel_work()
             self.auth_hint_timer.stop()
             self.exit_button.setText('Exiting…')

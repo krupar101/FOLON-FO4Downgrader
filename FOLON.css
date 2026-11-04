@@ -90,6 +90,27 @@ QLabel#HintText {
     padding: 0;
 }
 
+QLabel#UpdateStatus {
+    font-weight: bold;
+    padding: 0;
+}
+
+QLabel#UpdateStatus[state="yes"] {
+    color: #6fd08c;
+}
+
+QLabel#UpdateStatus[state="no"] {
+    color: #ff6b6b;
+}
+
+QLabel#UpdateStatus[state="neutral"] {
+    color: #e6dff0;
+}
+
+QLabel#UpdateStatus[state="unknown"] {
+    color: #bcaed0;
+}
+
 QWidget#ContentCard {
     background-color: rgba(40, 35, 46, 0.94);
     border: 1px solid #66537c;

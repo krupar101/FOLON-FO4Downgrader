@@ -74,7 +74,7 @@ class GuiTests(unittest.TestCase):
         self.assertFalse(window.exit_button.isEnabled())
         # A completion signal may race with the request to exit.
         window._next_action = 'deploy'
-        window._offer_cleanup = True
+        window._post_steps = ['cleanup', 'updates']
         running.return_value = False
         with patch.object(window, 'run') as run, patch.object(QMessageBox, 'question') as question:
             window.reset()
@@ -420,21 +420,99 @@ class GuiTests(unittest.TestCase):
         from folon_downgrader.qt import Window
         from folon_downgrader.cli import parser
         app = QApplication.instance() or QApplication([])
-        for answer in (QMessageBox.No, QMessageBox.Yes):
+        for answer in (False, True):
             window = Window(parser().parse_args([]))
             window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
             window.succeeded({'ok': True})
-            with patch.object(QMessageBox, 'question', return_value=answer) as prompt, patch.object(window, 'run') as run:
+            with patch.object(window, '_ask', return_value=answer) as prompt, \
+                    patch.object(window, '_offer_update_protection'), patch.object(window, 'run') as run:
                 window.reset()
                 prompt.assert_called_once()
-                if answer == QMessageBox.Yes:
+                if answer:
                     run.assert_called_once_with('cleanup-downloads')
                 else:
                     run.assert_not_called()
+                # Both answers always end on the summary, never the first screen.
+                self.assertEqual(window.pages.currentIndex(), 3)
                 window.reset()
                 prompt.assert_called_once()
             window.worker = None
             window.close()
+
+    def test_post_downgrade_workflow_ends_on_summary_with_actual_results(self):
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
+        window.succeeded({'ok': True})
+        # Updates are enabled; user keeps files and agrees to disable, but the change fails.
+        answers = iter([False, True])
+        with patch.object(window, '_ask', side_effect=lambda *a: next(answers)), \
+                patch('folon_downgrader.update_protection.status', return_value=False), \
+                patch('folon_downgrader.update_protection.set_disabled', return_value=(False, 'denied')), \
+                patch('folon_downgrader.qt.QMessageBox.warning') as warning:
+            window.reset()
+        warning.assert_called_once()
+        self.assertEqual(window.pages.currentIndex(), 3)
+        self.assertEqual(window.summary_values['downgrade'].text(), 'Yes')
+        self.assertEqual(window.summary_values['removed'].text(), 'No')
+        self.assertEqual(window.summary_values['updates'].text(), 'No')
+        window.worker = None
+        window.close()
+
+    def test_failed_cleanup_continues_workflow_and_is_reported(self):
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.worker = SimpleNamespace(action='deploy', isRunning=lambda: False)
+        window.succeeded({'ok': True})
+        window._post_steps = ['updates']
+        window.worker = SimpleNamespace(action='cleanup-downloads', isRunning=lambda: False)
+        window.failed({'error_code': 'CLEANUP_FAILED', 'message': 'locked'})
+        with patch('folon_downgrader.update_protection.status', return_value=True):
+            window.reset()
+        self.assertEqual(window.pages.currentIndex(), 3)
+        self.assertEqual(window.summary_values['removed'].text(), 'No')
+        self.assertEqual(window.summary_values['updates'].text(), 'Yes')
+        window.worker = None
+        window.close()
+
+    def test_update_status_unknown_without_manifest(self):
+        from PyQt5.QtWidgets import QApplication
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.game.setText('/nonexistent/steamapps/common/Fallout 4')
+        self.assertIsNone(window.refresh_updates_status())
+        self.assertEqual(window.updates_status.text(), 'Unknown')
+        self.assertFalse(window.updates_button.isEnabled())
+        window.close()
+
+    def test_steam_close_dialog_abort_stops_downgrade(self):
+        from unittest.mock import patch
+        from PyQt5.QtWidgets import QApplication, QMessageBox
+        from folon_downgrader.qt import Window
+        from folon_downgrader.cli import parser
+        app = QApplication.instance() or QApplication([])
+        window = Window(parser().parse_args([]))
+        window.game.setText('/g')
+        with patch('folon_downgrader.cli.make_request', return_value=SimpleNamespace(game='/g')), \
+                patch.object(QMessageBox, 'question', return_value=QMessageBox.Yes), \
+                patch('folon_downgrader.platforms.steam_processes', return_value=[object()]), \
+                patch.object(window, '_ask', return_value=False) as ask, \
+                patch('folon_downgrader.qt.Worker') as worker:
+            window.run('deploy')
+        ask.assert_called_once()
+        self.assertEqual(ask.call_args[0][4], 'Abort downgrade')
+        worker.assert_not_called()
+        window.close()
 
 
 @unittest.skipUnless(importlib.util.find_spec('PyQt5'), 'Qt is optional for headless core tests')

@@ -138,6 +138,22 @@ class FolonPages:
         management_row.addWidget(self.storage_button)
         storage_layout.addLayout(management_row)
         page_layout.addWidget(storage_card)
+
+        updates_card = self._card()
+        updates_row = QHBoxLayout(updates_card)
+        updates_row.setSpacing(8)
+        updates_row.addWidget(self._hint_label('Fallout 4 updates disabled'))
+        self.updates_status = QLabel('Unknown')
+        self.updates_status.setObjectName('UpdateStatus')
+        self.updates_status.setProperty('state', 'unknown')
+        updates_row.addWidget(self.updates_status)
+        updates_row.addStretch(1)
+        self.updates_button = QPushButton('Disable updates')
+        self.updates_button.setObjectName('SecondaryAction')
+        self.updates_button.setEnabled(False)
+        self.updates_button.clicked.connect(self.toggle_updates)
+        updates_row.addWidget(self.updates_button)
+        page_layout.addWidget(updates_card)
         page_layout.addStretch(1)
         self.tab1.setLayout(page_layout)
 
@@ -259,16 +275,20 @@ class FolonPages:
         card = self._card()
         card_layout = QVBoxLayout(card)
         card_layout.setSpacing(6)
-        card_layout.addWidget(self._hint_label('Next steps'))
-        next_steps = QLabel(
-            '<ul>'
-            '<li>Launch the game normally or continue with your Fallout London setup.</li>'
-            '<li>If you kept the downloaded depots, you can reuse them later.</li>'
-            '<li>If you run into problems, open the technical details or ask the community.</li>'
-            '</ul>'
-        )
-        next_steps.setWordWrap(True)
-        card_layout.addWidget(next_steps)
+        card_layout.addWidget(self._hint_label('Results'))
+        self.summary_values = {}
+        for key, text in (('downgrade', 'Downgrade successful'),
+                          ('removed', 'Downgrade files removed'),
+                          ('updates', 'Fallout 4 updates disabled')):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(text))
+            row.addStretch(1)
+            value = QLabel('—')
+            value.setObjectName('UpdateStatus')
+            value.setProperty('state', 'unknown')
+            row.addWidget(value)
+            card_layout.addLayout(row)
+            self.summary_values[key] = value
         page_layout.addWidget(card)
 
         action_row = QHBoxLayout()
