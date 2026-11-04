@@ -500,9 +500,9 @@ class Window(QWidget, FolonPages):
         except (OSError, DowngradeError):
             self.output.appendPlainText('Unable to discover Steam libraries. Select the folder with Browse.')
 
-    def run(self, action):
+    def run(self, action) -> bool:
         if self._exit_requested:
-            return
+            return False
         from .cli import make_request, make_storage_request
         self.args.game_path = Path(self.game.text().strip()) if self.game.text().strip() else None
         try:
@@ -511,14 +511,14 @@ class Window(QWidget, FolonPages):
                        else make_request(self.args))
         except (OSError, DowngradeError) as error:
             self.output.appendPlainText(str(error) if isinstance(error, DowngradeError) else 'Cannot access the selected directory.')
-            return
+            return False
         close_steam = False
         if action == 'deploy':
             if QMessageBox.question(self, 'Confirm game changes',
                     f'Game: {request.game}\n\nExisting game files will be overwritten and listed incompatible files removed. '
                     'No backup is created. Steam verification or reinstall restores the Steam version; '
                     'mods and custom files may need separate care.\n\nContinue?') != QMessageBox.Yes:
-                return
+                return False
         if action == 'deploy':
             from .platforms import steam_processes
             if steam_processes():
@@ -526,7 +526,7 @@ class Window(QWidget, FolonPages):
                         "Steam must be closed before the downgrader can safely replace Fallout 4's game files.",
                         'Do you want to close Steam now?',
                         'Yes, close Steam', 'Abort downgrade'):
-                    return
+                    return False
                 close_steam = True
         self.error_banner.hide()
         self.start_activity(action)
@@ -543,6 +543,7 @@ class Window(QWidget, FolonPages):
         self.pages.hide()
         self.set_activity_centered(True)
         self.worker.start()
+        return True
 
     def prompt(self, kind):
         # SteamCMD often asks for credentials already entered on the login page.
@@ -806,8 +807,7 @@ class Window(QWidget, FolonPages):
                         'disk space or keep them to downgrade Fallout 4 again without downloading them.',
                         'Do you want to remove the downloaded files?',
                         'Yes, remove files', 'No, keep files'):
-                    self.run('cleanup-downloads')
-                    if self.worker and self.worker.isRunning():
+                    if self.run('cleanup-downloads'):
                         return  # reset() resumes the workflow when the worker finishes
             elif step == 'updates':
                 self._offer_update_protection()
